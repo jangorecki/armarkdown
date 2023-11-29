@@ -1,0 +1,947 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+
+<meta name="date" content="2023-11-29" />
+
+<title>Programming on data.table</title>
+
+<script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
+// be compatible with the behavior of Pandoc < 2.8).
+document.addEventListener('DOMContentLoaded', function(e) {
+  var hs = document.querySelectorAll("div.section[class*='level'] > :first-child");
+  var i, h, a;
+  for (i = 0; i < hs.length; i++) {
+    h = hs[i];
+    if (!/^h[1-6]$/i.test(h.tagName)) continue;  // it should be a header h1-h6
+    a = h.attributes;
+    while (a.length > 0) h.removeAttribute(a[0].name);
+  }
+});
+</script>
+
+<style type="text/css">
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+span.underline{text-decoration: underline;}
+div.column{display: inline-block; vertical-align: top; width: 50%;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+</style>
+
+
+
+<style type="text/css">
+code {
+white-space: pre;
+}
+.sourceCode {
+overflow: visible;
+}
+</style>
+<style type="text/css" data-origin="pandoc">
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+{ counter-reset: source-line 0; }
+pre.numberSource code > span
+{ position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+{ content: counter(source-line);
+position: relative; left: -1em; text-align: right; vertical-align: baseline;
+border: none; display: inline-block;
+-webkit-touch-callout: none; -webkit-user-select: none;
+-khtml-user-select: none; -moz-user-select: none;
+-ms-user-select: none; user-select: none;
+padding: 0 4px; width: 4em;
+color: #aaaaaa;
+}
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa; padding-left: 4px; }
+div.sourceCode
+{ }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } 
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.at { color: #7d9029; } 
+code span.bn { color: #40a070; } 
+code span.bu { color: #008000; } 
+code span.cf { color: #007020; font-weight: bold; } 
+code span.ch { color: #4070a0; } 
+code span.cn { color: #880000; } 
+code span.co { color: #60a0b0; font-style: italic; } 
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.do { color: #ba2121; font-style: italic; } 
+code span.dt { color: #902000; } 
+code span.dv { color: #40a070; } 
+code span.er { color: #ff0000; font-weight: bold; } 
+code span.ex { } 
+code span.fl { color: #40a070; } 
+code span.fu { color: #06287e; } 
+code span.im { color: #008000; font-weight: bold; } 
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.kw { color: #007020; font-weight: bold; } 
+code span.op { color: #666666; } 
+code span.ot { color: #007020; } 
+code span.pp { color: #bc7a00; } 
+code span.sc { color: #4070a0; } 
+code span.ss { color: #bb6688; } 
+code span.st { color: #4070a0; } 
+code span.va { color: #19177c; } 
+code span.vs { color: #4070a0; } 
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } 
+</style>
+<script>
+// apply pandoc div.sourceCode style to pre.sourceCode instead
+(function() {
+  var sheets = document.styleSheets;
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
+    try { var rules = sheets[i].cssRules; } catch (e) { continue; }
+    var j = 0;
+    while (j < rules.length) {
+      var rule = rules[j];
+      // check if there is a div.sourceCode rule
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") {
+        j++;
+        continue;
+      }
+      var style = rule.style.cssText;
+      // check if color or background-color is set
+      if (rule.style.color === '' && rule.style.backgroundColor === '') {
+        j++;
+        continue;
+      }
+      // replace div.sourceCode by a pre.sourceCode rule
+      sheets[i].deleteRule(j);
+      sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
+    }
+  }
+})();
+</script>
+
+
+
+
+<style type="text/css">body {
+background-color: #fff;
+margin: 1em auto;
+max-width: 700px;
+overflow: visible;
+padding-left: 2em;
+padding-right: 2em;
+font-family: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+font-size: 14px;
+line-height: 1.35;
+}
+#TOC {
+clear: both;
+margin: 0 0 10px 10px;
+padding: 4px;
+width: 400px;
+border: 1px solid #CCCCCC;
+border-radius: 5px;
+background-color: #f6f6f6;
+font-size: 13px;
+line-height: 1.3;
+}
+#TOC .toctitle {
+font-weight: bold;
+font-size: 15px;
+margin-left: 5px;
+}
+#TOC ul {
+padding-left: 40px;
+margin-left: -1.5em;
+margin-top: 5px;
+margin-bottom: 5px;
+}
+#TOC ul ul {
+margin-left: -2em;
+}
+#TOC li {
+line-height: 16px;
+}
+table {
+margin: 1em auto;
+border-width: 1px;
+border-color: #DDDDDD;
+border-style: outset;
+border-collapse: collapse;
+}
+table th {
+border-width: 2px;
+padding: 5px;
+border-style: inset;
+}
+table td {
+border-width: 1px;
+border-style: inset;
+line-height: 18px;
+padding: 5px 5px;
+}
+table, table th, table td {
+border-left-style: none;
+border-right-style: none;
+}
+table thead, table tr.even {
+background-color: #f7f7f7;
+}
+p {
+margin: 0.5em 0;
+}
+blockquote {
+background-color: #f6f6f6;
+padding: 0.25em 0.75em;
+}
+hr {
+border-style: solid;
+border: none;
+border-top: 1px solid #777;
+margin: 28px 0;
+}
+dl {
+margin-left: 0;
+}
+dl dd {
+margin-bottom: 13px;
+margin-left: 13px;
+}
+dl dt {
+font-weight: bold;
+}
+ul {
+margin-top: 0;
+}
+ul li {
+list-style: circle outside;
+}
+ul ul {
+margin-bottom: 0;
+}
+pre, code {
+background-color: #f7f7f7;
+border-radius: 3px;
+color: #333;
+white-space: pre-wrap; 
+}
+pre {
+border-radius: 3px;
+margin: 5px 0px 10px 0px;
+padding: 10px;
+}
+pre:not([class]) {
+background-color: #f7f7f7;
+}
+code {
+font-family: Consolas, Monaco, 'Courier New', monospace;
+font-size: 85%;
+}
+p > code, li > code {
+padding: 2px 0px;
+}
+div.figure {
+text-align: center;
+}
+img {
+background-color: #FFFFFF;
+padding: 2px;
+border: 1px solid #DDDDDD;
+border-radius: 3px;
+border: 1px solid #CCCCCC;
+margin: 0 5px;
+}
+h1 {
+margin-top: 0;
+font-size: 35px;
+line-height: 40px;
+}
+h2 {
+border-bottom: 4px solid #f7f7f7;
+padding-top: 10px;
+padding-bottom: 2px;
+font-size: 145%;
+}
+h3 {
+border-bottom: 2px solid #f7f7f7;
+padding-top: 10px;
+font-size: 120%;
+}
+h4 {
+border-bottom: 1px solid #f7f7f7;
+margin-left: 8px;
+font-size: 105%;
+}
+h5, h6 {
+border-bottom: 1px solid #ccc;
+font-size: 105%;
+}
+a {
+color: #0033dd;
+text-decoration: none;
+}
+a:hover {
+color: #6666ff; }
+a:visited {
+color: #800080; }
+a:visited:hover {
+color: #BB00BB; }
+a[href^="http:"] {
+text-decoration: underline; }
+a[href^="https:"] {
+text-decoration: underline; }
+
+code > span.kw { color: #555; font-weight: bold; } 
+code > span.dt { color: #902000; } 
+code > span.dv { color: #40a070; } 
+code > span.bn { color: #d14; } 
+code > span.fl { color: #d14; } 
+code > span.ch { color: #d14; } 
+code > span.st { color: #d14; } 
+code > span.co { color: #888888; font-style: italic; } 
+code > span.ot { color: #007020; } 
+code > span.al { color: #ff0000; font-weight: bold; } 
+code > span.fu { color: #900; font-weight: bold; } 
+code > span.er { color: #a61717; background-color: #e3d2d2; } 
+</style>
+
+
+
+
+</head>
+
+<body>
+
+
+
+
+<h1 class="title toc-ignore">Programming on data.table</h1>
+<h4 class="date">2023-11-29</h4>
+
+
+
+<div id="introduction" class="section level2">
+<h2>Introduction</h2>
+<p><code>data.table</code>, from its very first releases, enabled the
+usage of <code>subset</code> and <code>with</code> (or
+<code>within</code>) functions by defining the<code>[.data.table</code>
+method. <code>subset</code> and <code>with</code> are base R functions
+that are useful for reducing repetition in code, enhancing readability,
+and reducing number the total characters the user has to type. This
+functionality is possible in R because of a quite unique feature called
+<em>lazy evaluation</em>. This feature allows a function to catch its
+arguments, before they are evaluated, and to evaluate them in a
+different scope than the one in which they were called. Let’s recap
+usage of the <code>subset</code> function.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a><span class="fu">subset</span>(iris, Species <span class="sc">==</span> <span class="st">&quot;setosa&quot;</span>)</span>
+<span id="cb1-2"><a href="#cb1-2" tabindex="-1"></a><span class="co">#   Sepal.Length Sepal.Width Petal.Length Petal.Width Species</span></span>
+<span id="cb1-3"><a href="#cb1-3" tabindex="-1"></a><span class="co"># 1          5.1         3.5          1.4         0.2  setosa</span></span>
+<span id="cb1-4"><a href="#cb1-4" tabindex="-1"></a><span class="co"># 2          4.9         3.0          1.4         0.2  setosa</span></span>
+<span id="cb1-5"><a href="#cb1-5" tabindex="-1"></a><span class="co">#  [ reached &#39;max&#39; / getOption(&quot;max.print&quot;) -- omitted 48 rows ]</span></span></code></pre></div>
+<p>Here, <code>subset</code> takes the second argument and evaluates it
+within the scope of the <code>data.frame</code> given as its first
+argument. This removes the need for variable repetition, making it less
+prone to errors, and makes the code more readable.</p>
+</div>
+<div id="problem-description" class="section level2">
+<h2>Problem description</h2>
+<p>The problem with this kind of interface is that we cannot easily
+parameterize the code that uses it. This is because the expressions
+passed to those functions are substituted before being evaluated.</p>
+<div id="example" class="section level3">
+<h3>Example</h3>
+<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a>my_subset <span class="ot">=</span> <span class="cf">function</span>(data, col, val) {</span>
+<span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a>  <span class="fu">subset</span>(data, col <span class="sc">==</span> val)</span>
+<span id="cb2-3"><a href="#cb2-3" tabindex="-1"></a>}</span>
+<span id="cb2-4"><a href="#cb2-4" tabindex="-1"></a><span class="fu">my_subset</span>(iris, Species, <span class="st">&quot;setosa&quot;</span>)</span>
+<span id="cb2-5"><a href="#cb2-5" tabindex="-1"></a><span class="co"># Error in eval(expr, envir, enclos): object &#39;Species&#39; not found</span></span></code></pre></div>
+</div>
+<div id="approaches-to-the-problem" class="section level3">
+<h3>Approaches to the problem</h3>
+<p>There are multiple ways to work around this problem.</p>
+<div id="avoid-lazy-evaluation" class="section level4">
+<h4>Avoid <em>lazy evaluation</em></h4>
+<p>The easiest workaround is to avoid <em>lazy evaluation</em> in the
+first place, and fall back to less intuitive, more error-prone
+approaches like <code>df[[&quot;variable&quot;]]</code>, etc.</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a>my_subset <span class="ot">=</span> <span class="cf">function</span>(data, col, val) {</span>
+<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a>  data[data[[col]] <span class="sc">==</span> val, ]</span>
+<span id="cb3-3"><a href="#cb3-3" tabindex="-1"></a>}</span>
+<span id="cb3-4"><a href="#cb3-4" tabindex="-1"></a><span class="fu">my_subset</span>(iris, <span class="at">col =</span> <span class="st">&quot;Species&quot;</span>, <span class="at">val =</span> <span class="st">&quot;setosa&quot;</span>)</span>
+<span id="cb3-5"><a href="#cb3-5" tabindex="-1"></a><span class="co">#   Sepal.Length Sepal.Width Petal.Length Petal.Width Species</span></span>
+<span id="cb3-6"><a href="#cb3-6" tabindex="-1"></a><span class="co"># 1          5.1         3.5          1.4         0.2  setosa</span></span>
+<span id="cb3-7"><a href="#cb3-7" tabindex="-1"></a><span class="co"># 2          4.9         3.0          1.4         0.2  setosa</span></span>
+<span id="cb3-8"><a href="#cb3-8" tabindex="-1"></a><span class="co">#  [ reached &#39;max&#39; / getOption(&quot;max.print&quot;) -- omitted 48 rows ]</span></span></code></pre></div>
+<p>Here, we compute a logical vector of length <code>nrow(iris)</code>,
+then this vector is supplied to the <code>i</code> argument of
+<code>[.data.frame</code> to perform ordinary logical vector subsetting.
+It works well for this simple example, but it lacks flexibility,
+introduces variable repetition, and requires user to change the function
+interface to pass the column name as a character rather than unquoted
+symbol. The more complex the expression we need to parameterize, the
+less practical this approach becomes.</p>
+</div>
+<div id="use-of-parse-eval" class="section level4">
+<h4>Use of <code>parse</code> / <code>eval</code></h4>
+<p>This method is usually preferred by newcomers to R as it is, perhaps,
+the most straightforward conceptually. This way requires producing the
+required expression using string concatenation, parsing it, and then
+evaluating it.</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a>my_subset <span class="ot">=</span> <span class="cf">function</span>(data, col, val) {</span>
+<span id="cb4-2"><a href="#cb4-2" tabindex="-1"></a>  data <span class="ot">=</span> <span class="fu">deparse</span>(<span class="fu">substitute</span>(data))</span>
+<span id="cb4-3"><a href="#cb4-3" tabindex="-1"></a>  col  <span class="ot">=</span> <span class="fu">deparse</span>(<span class="fu">substitute</span>(col))</span>
+<span id="cb4-4"><a href="#cb4-4" tabindex="-1"></a>  val  <span class="ot">=</span> <span class="fu">paste0</span>(<span class="st">&quot;&#39;&quot;</span>, val, <span class="st">&quot;&#39;&quot;</span>)</span>
+<span id="cb4-5"><a href="#cb4-5" tabindex="-1"></a>  text <span class="ot">=</span> <span class="fu">paste0</span>(<span class="st">&quot;subset(&quot;</span>, data, <span class="st">&quot;, &quot;</span>, col, <span class="st">&quot; == &quot;</span>, val, <span class="st">&quot;)&quot;</span>)</span>
+<span id="cb4-6"><a href="#cb4-6" tabindex="-1"></a>  <span class="fu">eval</span>(<span class="fu">parse</span>(<span class="at">text =</span> text)[[<span class="dv">1</span><span class="dt">L</span>]])</span>
+<span id="cb4-7"><a href="#cb4-7" tabindex="-1"></a>}</span>
+<span id="cb4-8"><a href="#cb4-8" tabindex="-1"></a><span class="fu">my_subset</span>(iris, Species, <span class="st">&quot;setosa&quot;</span>)</span>
+<span id="cb4-9"><a href="#cb4-9" tabindex="-1"></a><span class="co">#   Sepal.Length Sepal.Width Petal.Length Petal.Width Species</span></span>
+<span id="cb4-10"><a href="#cb4-10" tabindex="-1"></a><span class="co"># 1          5.1         3.5          1.4         0.2  setosa</span></span>
+<span id="cb4-11"><a href="#cb4-11" tabindex="-1"></a><span class="co"># 2          4.9         3.0          1.4         0.2  setosa</span></span>
+<span id="cb4-12"><a href="#cb4-12" tabindex="-1"></a><span class="co">#  [ reached &#39;max&#39; / getOption(&quot;max.print&quot;) -- omitted 48 rows ]</span></span></code></pre></div>
+<p>We have to use <code>deparse(substitute(...))</code> to catch the
+actual names of objects passed to function so we can construct the
+<code>subset</code> function call using those original names. Although
+ths provides unlimited flexibility with relatively low complexity,
+<strong>use of <code>eval(parse(...))</code> should be avoided</strong>.
+The main reasons are:</p>
+<ul>
+<li>lack of syntax validation</li>
+<li><a href="https://github.com/Rdatatable/data.table/issues/2655#issuecomment-376781159">vulnerability
+to code injection</a></li>
+<li>the existence of better alternatives</li>
+</ul>
+<p>Martin Machler, R Project Core Developer, <a href="https://stackoverflow.com/a/40164111/2490497">once said</a>:</p>
+<blockquote>
+<p>Sorry but I don’t understand why too many people even think a string
+was something that could be evaluated. You must change your mindset,
+really. Forget all connections between strings on one side and
+expressions, calls, evaluation on the other side. The (possibly) only
+connection is via <code>parse(text = ....)</code> and all good R
+programmers should know that this is rarely an efficient or safe means
+to construct expressions (or calls). Rather learn more about
+<code>substitute()</code>, <code>quote()</code>, and possibly the power
+of using <code>do.call(substitute, ......)</code>.</p>
+</blockquote>
+</div>
+<div id="computing-on-the-language" class="section level4">
+<h4>Computing on the language</h4>
+<p>The aforementioned functions, along with some others (including
+<code>as.call</code>, <code>as.name</code>/<code>as.symbol</code>,
+<code>bquote</code>, and <code>eval</code>), can be categorized as
+functions to <em>compute on the language</em>, as they operate on
+<em>language</em> objects (e.g. <code>call</code>,
+<code>name</code>/<code>symbol</code>).</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a>my_subset <span class="ot">=</span> <span class="cf">function</span>(data, col, val) {</span>
+<span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a>  <span class="fu">eval</span>(<span class="fu">substitute</span>(<span class="fu">subset</span>(data, col <span class="sc">==</span> val)))</span>
+<span id="cb5-3"><a href="#cb5-3" tabindex="-1"></a>}</span>
+<span id="cb5-4"><a href="#cb5-4" tabindex="-1"></a><span class="fu">my_subset</span>(iris, Species, <span class="st">&quot;setosa&quot;</span>)</span>
+<span id="cb5-5"><a href="#cb5-5" tabindex="-1"></a><span class="co">#   Sepal.Length Sepal.Width Petal.Length Petal.Width Species</span></span>
+<span id="cb5-6"><a href="#cb5-6" tabindex="-1"></a><span class="co"># 1          5.1         3.5          1.4         0.2  setosa</span></span>
+<span id="cb5-7"><a href="#cb5-7" tabindex="-1"></a><span class="co"># 2          4.9         3.0          1.4         0.2  setosa</span></span>
+<span id="cb5-8"><a href="#cb5-8" tabindex="-1"></a><span class="co">#  [ reached &#39;max&#39; / getOption(&quot;max.print&quot;) -- omitted 48 rows ]</span></span></code></pre></div>
+<p>Here, we used the base R <code>substitute</code> function to
+transform the call <code>subset(data, col == val)</code> into
+<code>subset(iris, Species == &quot;setosa&quot;)</code> by substituting
+<code>data</code>, <code>col</code>, and <code>val</code> with their
+original names (or values) from their parent environment. The benefits
+of this approach to the previous ones should be clear. Note that because
+we operate at the level of language objects, and don’t have to resort to
+string manipulation, we refer to this as <em>computing on the
+language</em>. There is a dedicated chapter on <em>Computing on the
+language</em> in <a href="https://cran.r-project.org/doc/manuals/r-release/R-lang.html">R
+language manual</a>. Although it is not necessary for <em>programming on
+data.table</em>, we encourage readers to read this chapter for the sake
+of better understanding this powerful and unique feature.</p>
+</div>
+<div id="use-third-party-packages" class="section level4">
+<h4>Use third party packages</h4>
+<p>There are third party packages that can achieve what base R computing
+on the language routines do (<code>pryr</code>, <code>lazyeval</code>
+and <code>rlang</code>, to name a few).</p>
+<p>Though these can be helpful, we will be discussing a
+<code>data.table</code>-unique approach here.</p>
+</div>
+</div>
+</div>
+<div id="programming-on-data.table" class="section level2">
+<h2>Programming on data.table</h2>
+<p>Now that we’ve established the proper way to parameterize code that
+uses <em>lazy evaluation</em>, we can move on to the main subject of
+this vignette, <em>programming on data.table</em>.</p>
+<p>Starting from version 1.14.2, data.table provides a robust mechanism
+for parameterizing expressions passed to the <code>i</code>,
+<code>j</code>, and <code>by</code> (or <code>keyby</code>) arguments of
+<code>[.data.table</code>. It is built upon the base R
+<code>substitute</code> function, and mimics its interface. Here, we
+introduce <code>substitute2</code> as a more robust and more
+user-friendly version of base R’s <code>substitute</code>. For a
+complete list of differences between <code>base::substitute</code> and
+<code>data.table::substitute2</code> please read the <a href="https://rdatatable.gitlab.io/data.table/library/data.table/html/substitute2.html"><code>substitute2</code>
+manual</a>.</p>
+<div id="substituting-variables-and-names" class="section level3">
+<h3>Substituting variables and names</h3>
+<p>Let’s say we want to have a general function that applies a function
+to sum of two arguments that has been applied another function. As a
+concrete example, below we have a function to compute the length of the
+hypotenuse in a right triangle, knowing length of its legs.</p>
+<p><span class="math inline">\({\displaystyle c = \sqrt{a^2 +
+b^2}}\)</span></p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a>square <span class="ot">=</span> <span class="cf">function</span>(x) x<span class="sc">^</span><span class="dv">2</span></span>
+<span id="cb6-2"><a href="#cb6-2" tabindex="-1"></a><span class="fu">quote</span>(</span>
+<span id="cb6-3"><a href="#cb6-3" tabindex="-1"></a>  <span class="fu">sqrt</span>(<span class="fu">square</span>(a) <span class="sc">+</span> <span class="fu">square</span>(b))</span>
+<span id="cb6-4"><a href="#cb6-4" tabindex="-1"></a>)</span>
+<span id="cb6-5"><a href="#cb6-5" tabindex="-1"></a><span class="co"># sqrt(square(a) + square(b))</span></span></code></pre></div>
+<p>The goal is the make every name in the above call able to be passed
+as a parameter.</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a><span class="fu">substitute2</span>(</span>
+<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a>  <span class="fu">outer</span>(<span class="fu">inner</span>(var1) <span class="sc">+</span> <span class="fu">inner</span>(var2)),</span>
+<span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a>  <span class="at">env =</span> <span class="fu">list</span>(</span>
+<span id="cb7-4"><a href="#cb7-4" tabindex="-1"></a>    <span class="at">outer =</span> <span class="st">&quot;sqrt&quot;</span>,</span>
+<span id="cb7-5"><a href="#cb7-5" tabindex="-1"></a>    <span class="at">inner =</span> <span class="st">&quot;square&quot;</span>,</span>
+<span id="cb7-6"><a href="#cb7-6" tabindex="-1"></a>    <span class="at">var1 =</span> <span class="st">&quot;a&quot;</span>,</span>
+<span id="cb7-7"><a href="#cb7-7" tabindex="-1"></a>    <span class="at">var2 =</span> <span class="st">&quot;b&quot;</span></span>
+<span id="cb7-8"><a href="#cb7-8" tabindex="-1"></a>  )</span>
+<span id="cb7-9"><a href="#cb7-9" tabindex="-1"></a>)</span>
+<span id="cb7-10"><a href="#cb7-10" tabindex="-1"></a><span class="co"># sqrt(square(a) + square(b))</span></span></code></pre></div>
+<p>We can see in the output that both the functions names, as well as
+the names of the variables passed to those functions, have been
+replaced.. We used <code>substitute2</code> for convenience. In this
+simple case, base R’s <code>substitute</code> could have been used as
+well, though it would’ve required usage of
+<code>lapply(env, as.name)</code>.</p>
+<p>Now, to use substitution inside <code>[.data.table</code>, we don’t
+need to call the <code>substitute2</code> function. As it is now being
+used internally, all we have to do is to provide <code>env</code>
+argument, the same way as we’ve provided it to the
+<code>substitute2</code> function in the example above. Substitution can
+be applied to the <code>i</code>, <code>j</code> and <code>by</code> (or
+<code>keyby</code>) arguments of the <code>[.data.table</code> method.
+Note that setting the <code>verbose</code> argument to <code>TRUE</code>
+can be used to print expressions after substitution is applied. This is
+very useful for debugging.</p>
+<p>Let’s use the <code>iris</code> data set as a demonstration. Just as
+an example, let’s pretend we want to compute the
+<code>Sepal.Hypotenuse</code>, treating the sepal width and length as if
+they were legs of a right triangle.</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" tabindex="-1"></a>DT <span class="ot">=</span> <span class="fu">as.data.table</span>(iris)</span>
+<span id="cb8-2"><a href="#cb8-2" tabindex="-1"></a></span>
+<span id="cb8-3"><a href="#cb8-3" tabindex="-1"></a>DT[, <span class="fu">outer</span>(<span class="fu">inner</span>(var1) <span class="sc">+</span> <span class="fu">inner</span>(var2)),</span>
+<span id="cb8-4"><a href="#cb8-4" tabindex="-1"></a>   env <span class="ot">=</span> <span class="fu">list</span>(</span>
+<span id="cb8-5"><a href="#cb8-5" tabindex="-1"></a>     <span class="at">outer =</span> <span class="st">&quot;sqrt&quot;</span>,</span>
+<span id="cb8-6"><a href="#cb8-6" tabindex="-1"></a>     <span class="at">inner =</span> <span class="st">&quot;square&quot;</span>,</span>
+<span id="cb8-7"><a href="#cb8-7" tabindex="-1"></a>     <span class="at">var1 =</span> <span class="st">&quot;Sepal.Length&quot;</span>,</span>
+<span id="cb8-8"><a href="#cb8-8" tabindex="-1"></a>     <span class="at">var2 =</span> <span class="st">&quot;Sepal.Width&quot;</span></span>
+<span id="cb8-9"><a href="#cb8-9" tabindex="-1"></a>  )]</span>
+<span id="cb8-10"><a href="#cb8-10" tabindex="-1"></a><span class="co"># [1] 6.185467 5.745433 5.685948 5.547071 6.161169 6.661081 5.720140 6.046487</span></span>
+<span id="cb8-11"><a href="#cb8-11" tabindex="-1"></a><span class="co">#  [ reached getOption(&quot;max.print&quot;) -- omitted 142 entries ]</span></span>
+<span id="cb8-12"><a href="#cb8-12" tabindex="-1"></a></span>
+<span id="cb8-13"><a href="#cb8-13" tabindex="-1"></a><span class="co"># return as a data.table</span></span>
+<span id="cb8-14"><a href="#cb8-14" tabindex="-1"></a>DT[, .(Species, var1, var2, <span class="at">out =</span> <span class="fu">outer</span>(<span class="fu">inner</span>(var1) <span class="sc">+</span> <span class="fu">inner</span>(var2))),</span>
+<span id="cb8-15"><a href="#cb8-15" tabindex="-1"></a>   env <span class="ot">=</span> <span class="fu">list</span>(</span>
+<span id="cb8-16"><a href="#cb8-16" tabindex="-1"></a>     <span class="at">outer =</span> <span class="st">&quot;sqrt&quot;</span>,</span>
+<span id="cb8-17"><a href="#cb8-17" tabindex="-1"></a>     <span class="at">inner =</span> <span class="st">&quot;square&quot;</span>,</span>
+<span id="cb8-18"><a href="#cb8-18" tabindex="-1"></a>     <span class="at">var1 =</span> <span class="st">&quot;Sepal.Length&quot;</span>,</span>
+<span id="cb8-19"><a href="#cb8-19" tabindex="-1"></a>     <span class="at">var2 =</span> <span class="st">&quot;Sepal.Width&quot;</span>,</span>
+<span id="cb8-20"><a href="#cb8-20" tabindex="-1"></a>     <span class="at">out =</span> <span class="st">&quot;Sepal.Hypotenuse&quot;</span></span>
+<span id="cb8-21"><a href="#cb8-21" tabindex="-1"></a>  )]</span>
+<span id="cb8-22"><a href="#cb8-22" tabindex="-1"></a><span class="co">#        Species Sepal.Length Sepal.Width Sepal.Hypotenuse</span></span>
+<span id="cb8-23"><a href="#cb8-23" tabindex="-1"></a><span class="co">#         &lt;fctr&gt;        &lt;num&gt;       &lt;num&gt;            &lt;num&gt;</span></span>
+<span id="cb8-24"><a href="#cb8-24" tabindex="-1"></a><span class="co">#   1:    setosa          5.1         3.5         6.185467</span></span>
+<span id="cb8-25"><a href="#cb8-25" tabindex="-1"></a><span class="co">#  [ reached getOption(&quot;max.print&quot;) -- omitted 10 rows ]</span></span></code></pre></div>
+<p>In the last call, we added another parameter,
+<code>out = &quot;Sepal.Hypotenuse&quot;</code>, that conveys the intended name of
+output column. Unlike base R’s <code>substitute</code>,
+<code>substitute2</code> will handle the substitution of the names of
+call arguments, as well.</p>
+<p>Substitution works on <code>i</code> and <code>by</code> (or
+<code>keyby</code>), as well.</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a>DT[filter_col <span class="sc">%in%</span> filter_val,</span>
+<span id="cb9-2"><a href="#cb9-2" tabindex="-1"></a>   .(var1, var2, <span class="at">out =</span> <span class="fu">outer</span>(<span class="fu">inner</span>(var1) <span class="sc">+</span> <span class="fu">inner</span>(var2))),</span>
+<span id="cb9-3"><a href="#cb9-3" tabindex="-1"></a>   by <span class="ot">=</span> by_col,</span>
+<span id="cb9-4"><a href="#cb9-4" tabindex="-1"></a>   env <span class="ot">=</span> <span class="fu">list</span>(</span>
+<span id="cb9-5"><a href="#cb9-5" tabindex="-1"></a>     <span class="at">outer =</span> <span class="st">&quot;sqrt&quot;</span>,</span>
+<span id="cb9-6"><a href="#cb9-6" tabindex="-1"></a>     <span class="at">inner =</span> <span class="st">&quot;square&quot;</span>,</span>
+<span id="cb9-7"><a href="#cb9-7" tabindex="-1"></a>     <span class="at">var1 =</span> <span class="st">&quot;Sepal.Length&quot;</span>,</span>
+<span id="cb9-8"><a href="#cb9-8" tabindex="-1"></a>     <span class="at">var2 =</span> <span class="st">&quot;Sepal.Width&quot;</span>,</span>
+<span id="cb9-9"><a href="#cb9-9" tabindex="-1"></a>     <span class="at">out =</span> <span class="st">&quot;Sepal.Hypotenuse&quot;</span>,</span>
+<span id="cb9-10"><a href="#cb9-10" tabindex="-1"></a>     <span class="at">filter_col =</span> <span class="st">&quot;Species&quot;</span>,</span>
+<span id="cb9-11"><a href="#cb9-11" tabindex="-1"></a>     <span class="at">filter_val =</span> <span class="fu">I</span>(<span class="fu">c</span>(<span class="st">&quot;versicolor&quot;</span>, <span class="st">&quot;virginica&quot;</span>)),</span>
+<span id="cb9-12"><a href="#cb9-12" tabindex="-1"></a>     <span class="at">by_col =</span>  <span class="st">&quot;Species&quot;</span></span>
+<span id="cb9-13"><a href="#cb9-13" tabindex="-1"></a>  )]</span>
+<span id="cb9-14"><a href="#cb9-14" tabindex="-1"></a><span class="co">#         Species Sepal.Length Sepal.Width Sepal.Hypotenuse</span></span>
+<span id="cb9-15"><a href="#cb9-15" tabindex="-1"></a><span class="co">#          &lt;fctr&gt;        &lt;num&gt;       &lt;num&gt;            &lt;num&gt;</span></span>
+<span id="cb9-16"><a href="#cb9-16" tabindex="-1"></a><span class="co">#   1: versicolor          7.0         3.2         7.696753</span></span>
+<span id="cb9-17"><a href="#cb9-17" tabindex="-1"></a><span class="co">#  [ reached getOption(&quot;max.print&quot;) -- omitted 100 rows ]</span></span></code></pre></div>
+</div>
+<div id="substitute-variables-and-character-values" class="section level3">
+<h3>Substitute variables and character values</h3>
+<p>In the above example, we have seen a convenient feature of
+<code>substitute2</code>: automatic conversion from strings into
+names/symbols. An obvious question arises: what if we actually want to
+substitute a parameter with a <em>character</em> value, so as to have
+base R <code>substitute</code> behaviour. We provide a mechanism to
+escape automatic conversion by wrapping the elements into base R
+<code>I()</code> call. The <code>I</code> function marks an object as
+<em>AsIs</em>, preventing its arguments from substitution. (Read the
+<code>?AsIs</code> documentation for more details.) If base R behaviour
+is desired for the whole <code>env</code> argument, then it’s best to
+wrap the whole argument in <code>I()</code>. Alternatively, each list
+element can be wrapped in <code>I()</code> individually. Let’s explore
+both cases below.</p>
+<div class="sourceCode" id="cb10"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" tabindex="-1"></a><span class="fu">substitute</span>(    <span class="co"># base R behaviour</span></span>
+<span id="cb10-2"><a href="#cb10-2" tabindex="-1"></a>  <span class="fu">rank</span>(input, <span class="at">ties.method =</span> ties),</span>
+<span id="cb10-3"><a href="#cb10-3" tabindex="-1"></a>  <span class="at">env =</span> <span class="fu">list</span>(<span class="at">input =</span> <span class="fu">as.name</span>(<span class="st">&quot;Sepal.Width&quot;</span>), <span class="at">ties =</span> <span class="st">&quot;first&quot;</span>)</span>
+<span id="cb10-4"><a href="#cb10-4" tabindex="-1"></a>)</span>
+<span id="cb10-5"><a href="#cb10-5" tabindex="-1"></a><span class="co"># rank(Sepal.Width, ties.method = &quot;first&quot;)</span></span>
+<span id="cb10-6"><a href="#cb10-6" tabindex="-1"></a></span>
+<span id="cb10-7"><a href="#cb10-7" tabindex="-1"></a><span class="fu">substitute2</span>(   <span class="co"># mimicking base R&#39;s &quot;substitute&quot; using &quot;I&quot;</span></span>
+<span id="cb10-8"><a href="#cb10-8" tabindex="-1"></a>  <span class="fu">rank</span>(input, <span class="at">ties.method =</span> ties),</span>
+<span id="cb10-9"><a href="#cb10-9" tabindex="-1"></a>  <span class="at">env =</span> <span class="fu">I</span>(<span class="fu">list</span>(<span class="at">input =</span> <span class="fu">as.name</span>(<span class="st">&quot;Sepal.Width&quot;</span>), <span class="at">ties =</span> <span class="st">&quot;first&quot;</span>))</span>
+<span id="cb10-10"><a href="#cb10-10" tabindex="-1"></a>)</span>
+<span id="cb10-11"><a href="#cb10-11" tabindex="-1"></a><span class="co"># rank(Sepal.Width, ties.method = &quot;first&quot;)</span></span>
+<span id="cb10-12"><a href="#cb10-12" tabindex="-1"></a></span>
+<span id="cb10-13"><a href="#cb10-13" tabindex="-1"></a><span class="fu">substitute2</span>(   <span class="co"># only particular elements of env are used &quot;AsIs&quot;</span></span>
+<span id="cb10-14"><a href="#cb10-14" tabindex="-1"></a>  <span class="fu">rank</span>(input, <span class="at">ties.method =</span> ties),</span>
+<span id="cb10-15"><a href="#cb10-15" tabindex="-1"></a>  <span class="at">env =</span> <span class="fu">list</span>(<span class="at">input =</span> <span class="st">&quot;Sepal.Width&quot;</span>, <span class="at">ties =</span> <span class="fu">I</span>(<span class="st">&quot;first&quot;</span>))</span>
+<span id="cb10-16"><a href="#cb10-16" tabindex="-1"></a>)</span>
+<span id="cb10-17"><a href="#cb10-17" tabindex="-1"></a><span class="co"># rank(Sepal.Width, ties.method = &quot;first&quot;)</span></span></code></pre></div>
+<p>Note that conversion works recursively on each list element,
+including the escape mechanism of course.</p>
+<div class="sourceCode" id="cb11"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" tabindex="-1"></a><span class="fu">substitute2</span>(   <span class="co"># all are symbols</span></span>
+<span id="cb11-2"><a href="#cb11-2" tabindex="-1"></a>  <span class="fu">f</span>(v1, v2),</span>
+<span id="cb11-3"><a href="#cb11-3" tabindex="-1"></a>  <span class="fu">list</span>(<span class="at">v1 =</span> <span class="st">&quot;a&quot;</span>, <span class="at">v2 =</span> <span class="fu">list</span>(<span class="st">&quot;b&quot;</span>, <span class="fu">list</span>(<span class="st">&quot;c&quot;</span>, <span class="st">&quot;d&quot;</span>)))</span>
+<span id="cb11-4"><a href="#cb11-4" tabindex="-1"></a>)</span>
+<span id="cb11-5"><a href="#cb11-5" tabindex="-1"></a><span class="co"># f(a, list(b, list(c, d)))</span></span>
+<span id="cb11-6"><a href="#cb11-6" tabindex="-1"></a><span class="fu">substitute2</span>(   <span class="co"># &#39;a&#39; and &#39;d&#39; should stay as character</span></span>
+<span id="cb11-7"><a href="#cb11-7" tabindex="-1"></a>  <span class="fu">f</span>(v1, v2),</span>
+<span id="cb11-8"><a href="#cb11-8" tabindex="-1"></a>  <span class="fu">list</span>(<span class="at">v1 =</span> <span class="fu">I</span>(<span class="st">&quot;a&quot;</span>), <span class="at">v2 =</span> <span class="fu">list</span>(<span class="st">&quot;b&quot;</span>, <span class="fu">list</span>(<span class="st">&quot;c&quot;</span>, <span class="fu">I</span>(<span class="st">&quot;d&quot;</span>))))</span>
+<span id="cb11-9"><a href="#cb11-9" tabindex="-1"></a>)</span>
+<span id="cb11-10"><a href="#cb11-10" tabindex="-1"></a><span class="co"># f(&quot;a&quot;, list(b, list(c, &quot;d&quot;)))</span></span></code></pre></div>
+</div>
+<div id="substituting-lists-of-arbitrary-length" class="section level3">
+<h3>Substituting lists of arbitrary length</h3>
+<p>The example presented above illustrates a neat and powerful way to
+make your code more dynamic. However, there are many other much more
+complex cases that a developer might have to deal with. One common
+problem handling a list of arguments of arbitrary length.</p>
+<p>An obvious use case could be to mimic <code>.SD</code> functionality
+by injecting a <code>list</code> call into the <code>j</code>
+argument.</p>
+<div class="sourceCode" id="cb12"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" tabindex="-1"></a>cols <span class="ot">=</span> <span class="fu">c</span>(<span class="st">&quot;Sepal.Length&quot;</span>, <span class="st">&quot;Sepal.Width&quot;</span>)</span>
+<span id="cb12-2"><a href="#cb12-2" tabindex="-1"></a>DT[, .SD, .SDcols <span class="ot">=</span> cols]</span>
+<span id="cb12-3"><a href="#cb12-3" tabindex="-1"></a><span class="co">#      Sepal.Length Sepal.Width</span></span>
+<span id="cb12-4"><a href="#cb12-4" tabindex="-1"></a><span class="co">#             &lt;num&gt;       &lt;num&gt;</span></span>
+<span id="cb12-5"><a href="#cb12-5" tabindex="-1"></a><span class="co">#   1:          5.1         3.5</span></span>
+<span id="cb12-6"><a href="#cb12-6" tabindex="-1"></a><span class="co">#  [ reached getOption(&quot;max.print&quot;) -- omitted 10 rows ]</span></span></code></pre></div>
+<p>Having <code>cols</code> parameter, we’d want to splice it into a
+<code>list</code> call, making <code>j</code> argument look like in the
+code below.</p>
+<div class="sourceCode" id="cb13"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" tabindex="-1"></a>DT[, <span class="fu">list</span>(Sepal.Length, Sepal.Width)]</span>
+<span id="cb13-2"><a href="#cb13-2" tabindex="-1"></a><span class="co">#      Sepal.Length Sepal.Width</span></span>
+<span id="cb13-3"><a href="#cb13-3" tabindex="-1"></a><span class="co">#             &lt;num&gt;       &lt;num&gt;</span></span>
+<span id="cb13-4"><a href="#cb13-4" tabindex="-1"></a><span class="co">#   1:          5.1         3.5</span></span>
+<span id="cb13-5"><a href="#cb13-5" tabindex="-1"></a><span class="co">#  [ reached getOption(&quot;max.print&quot;) -- omitted 10 rows ]</span></span></code></pre></div>
+<p><em>Splicing</em> is an operation where a list of objects have to be
+inlined into an expression as a sequence of arguments to call. In base
+R, splicing <code>cols</code> into a <code>list</code> can be achieved
+using <code>as.call(c(quote(list), cols))</code>. Additionally, starting
+from R 4.0.0, there is new interface for such an operation in the
+<code>bquote</code> function.</p>
+<p>In data.table, we make it easier by automatically <em>enlist</em>-ing
+a list of objects into a list call with those objects. This means that
+any <code>list</code> object inside the <code>env</code> list argument
+will be turned into list <code>call</code>, making the API for that use
+case as simple as presented below.</p>
+<div class="sourceCode" id="cb14"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" tabindex="-1"></a><span class="co"># this works</span></span>
+<span id="cb14-2"><a href="#cb14-2" tabindex="-1"></a>DT[, j,</span>
+<span id="cb14-3"><a href="#cb14-3" tabindex="-1"></a>   env <span class="ot">=</span> <span class="fu">list</span>(<span class="at">j =</span> <span class="fu">as.list</span>(cols)),</span>
+<span id="cb14-4"><a href="#cb14-4" tabindex="-1"></a>   verbose <span class="ot">=</span> <span class="cn">TRUE</span>]</span>
+<span id="cb14-5"><a href="#cb14-5" tabindex="-1"></a><span class="co"># Argument &#39;j&#39; after substitute: list(Sepal.Length, Sepal.Width)</span></span>
+<span id="cb14-6"><a href="#cb14-6" tabindex="-1"></a><span class="co"># Detected that j uses these columns: [Sepal.Length, Sepal.Width]</span></span>
+<span id="cb14-7"><a href="#cb14-7" tabindex="-1"></a><span class="co">#      Sepal.Length Sepal.Width</span></span>
+<span id="cb14-8"><a href="#cb14-8" tabindex="-1"></a><span class="co">#             &lt;num&gt;       &lt;num&gt;</span></span>
+<span id="cb14-9"><a href="#cb14-9" tabindex="-1"></a><span class="co">#   1:          5.1         3.5</span></span>
+<span id="cb14-10"><a href="#cb14-10" tabindex="-1"></a><span class="co">#  [ reached getOption(&quot;max.print&quot;) -- omitted 10 rows ]</span></span>
+<span id="cb14-11"><a href="#cb14-11" tabindex="-1"></a></span>
+<span id="cb14-12"><a href="#cb14-12" tabindex="-1"></a><span class="co"># this will not work</span></span>
+<span id="cb14-13"><a href="#cb14-13" tabindex="-1"></a><span class="co">#DT[, list(cols),</span></span>
+<span id="cb14-14"><a href="#cb14-14" tabindex="-1"></a><span class="co">#   env = list(cols = cols)]</span></span></code></pre></div>
+<p>It is important to provide a call to <code>as.list</code>, rather
+than simply a list, inside the <code>env</code> list argument, as is
+shown in the above example.</p>
+<p>Let’s explore <em>enlist</em>-ing in more detail.</p>
+<div class="sourceCode" id="cb15"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" tabindex="-1"></a>DT[, j,  <span class="co"># data.table automatically enlists nested lists into list calls</span></span>
+<span id="cb15-2"><a href="#cb15-2" tabindex="-1"></a>   env <span class="ot">=</span> <span class="fu">list</span>(<span class="at">j =</span> <span class="fu">as.list</span>(cols)),</span>
+<span id="cb15-3"><a href="#cb15-3" tabindex="-1"></a>   verbose <span class="ot">=</span> <span class="cn">TRUE</span>]</span>
+<span id="cb15-4"><a href="#cb15-4" tabindex="-1"></a><span class="co"># Argument &#39;j&#39; after substitute: list(Sepal.Length, Sepal.Width)</span></span>
+<span id="cb15-5"><a href="#cb15-5" tabindex="-1"></a><span class="co"># Detected that j uses these columns: [Sepal.Length, Sepal.Width]</span></span>
+<span id="cb15-6"><a href="#cb15-6" tabindex="-1"></a><span class="co">#      Sepal.Length Sepal.Width</span></span>
+<span id="cb15-7"><a href="#cb15-7" tabindex="-1"></a><span class="co">#             &lt;num&gt;       &lt;num&gt;</span></span>
+<span id="cb15-8"><a href="#cb15-8" tabindex="-1"></a><span class="co">#   1:          5.1         3.5</span></span>
+<span id="cb15-9"><a href="#cb15-9" tabindex="-1"></a><span class="co">#  [ reached getOption(&quot;max.print&quot;) -- omitted 10 rows ]</span></span>
+<span id="cb15-10"><a href="#cb15-10" tabindex="-1"></a></span>
+<span id="cb15-11"><a href="#cb15-11" tabindex="-1"></a>DT[, j,  <span class="co"># turning the above &#39;j&#39; list into a list call</span></span>
+<span id="cb15-12"><a href="#cb15-12" tabindex="-1"></a>   env <span class="ot">=</span> <span class="fu">list</span>(<span class="at">j =</span> <span class="fu">quote</span>(<span class="fu">list</span>(Sepal.Length, Sepal.Width))),</span>
+<span id="cb15-13"><a href="#cb15-13" tabindex="-1"></a>   verbose <span class="ot">=</span> <span class="cn">TRUE</span>]</span>
+<span id="cb15-14"><a href="#cb15-14" tabindex="-1"></a><span class="co"># Argument &#39;j&#39; after substitute: list(Sepal.Length, Sepal.Width)</span></span>
+<span id="cb15-15"><a href="#cb15-15" tabindex="-1"></a><span class="co"># Detected that j uses these columns: [Sepal.Length, Sepal.Width]</span></span>
+<span id="cb15-16"><a href="#cb15-16" tabindex="-1"></a><span class="co">#      Sepal.Length Sepal.Width</span></span>
+<span id="cb15-17"><a href="#cb15-17" tabindex="-1"></a><span class="co">#             &lt;num&gt;       &lt;num&gt;</span></span>
+<span id="cb15-18"><a href="#cb15-18" tabindex="-1"></a><span class="co">#   1:          5.1         3.5</span></span>
+<span id="cb15-19"><a href="#cb15-19" tabindex="-1"></a><span class="co">#  [ reached getOption(&quot;max.print&quot;) -- omitted 10 rows ]</span></span>
+<span id="cb15-20"><a href="#cb15-20" tabindex="-1"></a></span>
+<span id="cb15-21"><a href="#cb15-21" tabindex="-1"></a>DT[, j,  <span class="co"># the same as above but accepts character vector</span></span>
+<span id="cb15-22"><a href="#cb15-22" tabindex="-1"></a>   env <span class="ot">=</span> <span class="fu">list</span>(<span class="at">j =</span> <span class="fu">as.call</span>(<span class="fu">c</span>(<span class="fu">quote</span>(list), <span class="fu">lapply</span>(cols, as.name)))),</span>
+<span id="cb15-23"><a href="#cb15-23" tabindex="-1"></a>   verbose <span class="ot">=</span> <span class="cn">TRUE</span>]</span>
+<span id="cb15-24"><a href="#cb15-24" tabindex="-1"></a><span class="co"># Argument &#39;j&#39; after substitute: list(Sepal.Length, Sepal.Width)</span></span>
+<span id="cb15-25"><a href="#cb15-25" tabindex="-1"></a><span class="co"># Detected that j uses these columns: [Sepal.Length, Sepal.Width]</span></span>
+<span id="cb15-26"><a href="#cb15-26" tabindex="-1"></a><span class="co">#      Sepal.Length Sepal.Width</span></span>
+<span id="cb15-27"><a href="#cb15-27" tabindex="-1"></a><span class="co">#             &lt;num&gt;       &lt;num&gt;</span></span>
+<span id="cb15-28"><a href="#cb15-28" tabindex="-1"></a><span class="co">#   1:          5.1         3.5</span></span>
+<span id="cb15-29"><a href="#cb15-29" tabindex="-1"></a><span class="co">#  [ reached getOption(&quot;max.print&quot;) -- omitted 10 rows ]</span></span></code></pre></div>
+<p>Now let’s try to pass a list of symbols, rather than list call to
+those symbols. We’ll use <code>I()</code> to escape automatic
+<em>enlist</em>-ing but, as this will also turn off character to symbol
+conversion, we also have to use <code>as.name</code>.</p>
+<div class="sourceCode" id="cb16"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" tabindex="-1"></a>DT[, j,  <span class="co"># list of symbols</span></span>
+<span id="cb16-2"><a href="#cb16-2" tabindex="-1"></a>   env <span class="ot">=</span> <span class="fu">I</span>(<span class="fu">list</span>(<span class="at">j =</span> <span class="fu">lapply</span>(cols, as.name))),</span>
+<span id="cb16-3"><a href="#cb16-3" tabindex="-1"></a>   verbose <span class="ot">=</span> <span class="cn">TRUE</span>]</span>
+<span id="cb16-4"><a href="#cb16-4" tabindex="-1"></a><span class="co"># Argument &#39;j&#39; after substitute: list(Sepal.Length, Sepal.Width)</span></span>
+<span id="cb16-5"><a href="#cb16-5" tabindex="-1"></a><span class="co"># Error: When with=FALSE, j-argument should be of type logical/character/integer indicating the columns to select.</span></span>
+<span id="cb16-6"><a href="#cb16-6" tabindex="-1"></a></span>
+<span id="cb16-7"><a href="#cb16-7" tabindex="-1"></a>DT[, j,  <span class="co"># again the proper way, enlist list to list call automatically</span></span>
+<span id="cb16-8"><a href="#cb16-8" tabindex="-1"></a>   env <span class="ot">=</span> <span class="fu">list</span>(<span class="at">j =</span> <span class="fu">as.list</span>(cols)),</span>
+<span id="cb16-9"><a href="#cb16-9" tabindex="-1"></a>   verbose <span class="ot">=</span> <span class="cn">TRUE</span>]</span>
+<span id="cb16-10"><a href="#cb16-10" tabindex="-1"></a><span class="co"># Argument &#39;j&#39; after substitute: list(Sepal.Length, Sepal.Width)</span></span>
+<span id="cb16-11"><a href="#cb16-11" tabindex="-1"></a><span class="co"># Detected that j uses these columns: [Sepal.Length, Sepal.Width]</span></span>
+<span id="cb16-12"><a href="#cb16-12" tabindex="-1"></a><span class="co">#      Sepal.Length Sepal.Width</span></span>
+<span id="cb16-13"><a href="#cb16-13" tabindex="-1"></a><span class="co">#             &lt;num&gt;       &lt;num&gt;</span></span>
+<span id="cb16-14"><a href="#cb16-14" tabindex="-1"></a><span class="co">#   1:          5.1         3.5</span></span>
+<span id="cb16-15"><a href="#cb16-15" tabindex="-1"></a><span class="co">#  [ reached getOption(&quot;max.print&quot;) -- omitted 10 rows ]</span></span></code></pre></div>
+<p>Note that both expressions, although visually appearing to be the
+same, are not identical.</p>
+<div class="sourceCode" id="cb17"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" tabindex="-1"></a><span class="fu">str</span>(<span class="fu">substitute2</span>(j, <span class="at">env =</span> <span class="fu">I</span>(<span class="fu">list</span>(<span class="at">j =</span> <span class="fu">lapply</span>(cols, as.name)))))</span>
+<span id="cb17-2"><a href="#cb17-2" tabindex="-1"></a><span class="co"># List of 2</span></span>
+<span id="cb17-3"><a href="#cb17-3" tabindex="-1"></a><span class="co">#  $ : symbol Sepal.Length</span></span>
+<span id="cb17-4"><a href="#cb17-4" tabindex="-1"></a><span class="co">#  $ : symbol Sepal.Width</span></span>
+<span id="cb17-5"><a href="#cb17-5" tabindex="-1"></a></span>
+<span id="cb17-6"><a href="#cb17-6" tabindex="-1"></a><span class="fu">str</span>(<span class="fu">substitute2</span>(j, <span class="at">env =</span> <span class="fu">list</span>(<span class="at">j =</span> <span class="fu">as.list</span>(cols))))</span>
+<span id="cb17-7"><a href="#cb17-7" tabindex="-1"></a><span class="co">#  language list(Sepal.Length, Sepal.Width)</span></span></code></pre></div>
+<p>For more detailed explanation on that matter, please see the examples
+in the <a href="https://rdatatable.gitlab.io/data.table/library/data.table/html/substitute2.html"><code>substitute2</code>
+documentation</a>.</p>
+</div>
+<div id="substitution-of-a-complex-query" class="section level3">
+<h3>Substitution of a complex query</h3>
+<p>Let’s take, as an example of a more complex function, calculating
+root mean square.</p>
+<p><span class="math inline">\({\displaystyle
+x_{\text{RMS}}={\sqrt{{\frac{1}{n}}\left(x_{1}^{2}+x_{2}^{2}+\cdots
++x_{n}^{2}\right)}}}\)</span></p>
+<p>It takes arbitrary number of variables on input, but now we cannot
+just <em>splice</em> a list of arguments into a list call because each
+of those arguments have to be wrapped in a <code>square</code> call. In
+this case, we have to <em>splice</em> by hand rather than relying on
+data.table’s automatic <em>enlist</em>.</p>
+<p>First, we have to construct calls to the <code>square</code> function
+for each of the variables (see <code>inner_calls</code>). Then, we have
+to reduce the list of calls into a single call, having a nested sequence
+of <code>+</code> calls (see <code>add_calls</code>). Lastly, we have to
+substitute the constructed call into the surrounding expression (see
+<code>rms</code>).</p>
+<div class="sourceCode" id="cb18"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1" tabindex="-1"></a>outer <span class="ot">=</span> <span class="st">&quot;sqrt&quot;</span></span>
+<span id="cb18-2"><a href="#cb18-2" tabindex="-1"></a>inner <span class="ot">=</span> <span class="st">&quot;square&quot;</span></span>
+<span id="cb18-3"><a href="#cb18-3" tabindex="-1"></a>vars <span class="ot">=</span> <span class="fu">c</span>(<span class="st">&quot;Sepal.Length&quot;</span>, <span class="st">&quot;Sepal.Width&quot;</span>, <span class="st">&quot;Petal.Length&quot;</span>, <span class="st">&quot;Petal.Width&quot;</span>)</span>
+<span id="cb18-4"><a href="#cb18-4" tabindex="-1"></a></span>
+<span id="cb18-5"><a href="#cb18-5" tabindex="-1"></a>syms <span class="ot">=</span> <span class="fu">lapply</span>(vars, as.name)</span>
+<span id="cb18-6"><a href="#cb18-6" tabindex="-1"></a>to_inner_call <span class="ot">=</span> <span class="cf">function</span>(var, fun) <span class="fu">call</span>(fun, var)</span>
+<span id="cb18-7"><a href="#cb18-7" tabindex="-1"></a>inner_calls <span class="ot">=</span> <span class="fu">lapply</span>(syms, to_inner_call, inner)</span>
+<span id="cb18-8"><a href="#cb18-8" tabindex="-1"></a><span class="fu">print</span>(inner_calls)</span>
+<span id="cb18-9"><a href="#cb18-9" tabindex="-1"></a><span class="co"># [[1]]</span></span>
+<span id="cb18-10"><a href="#cb18-10" tabindex="-1"></a><span class="co"># square(Sepal.Length)</span></span>
+<span id="cb18-11"><a href="#cb18-11" tabindex="-1"></a><span class="co"># </span></span>
+<span id="cb18-12"><a href="#cb18-12" tabindex="-1"></a><span class="co"># [[2]]</span></span>
+<span id="cb18-13"><a href="#cb18-13" tabindex="-1"></a><span class="co"># square(Sepal.Width)</span></span>
+<span id="cb18-14"><a href="#cb18-14" tabindex="-1"></a><span class="co"># </span></span>
+<span id="cb18-15"><a href="#cb18-15" tabindex="-1"></a><span class="co"># [[3]]</span></span>
+<span id="cb18-16"><a href="#cb18-16" tabindex="-1"></a><span class="co"># square(Petal.Length)</span></span>
+<span id="cb18-17"><a href="#cb18-17" tabindex="-1"></a><span class="co"># </span></span>
+<span id="cb18-18"><a href="#cb18-18" tabindex="-1"></a><span class="co"># [[4]]</span></span>
+<span id="cb18-19"><a href="#cb18-19" tabindex="-1"></a><span class="co"># square(Petal.Width)</span></span>
+<span id="cb18-20"><a href="#cb18-20" tabindex="-1"></a></span>
+<span id="cb18-21"><a href="#cb18-21" tabindex="-1"></a>to_add_call <span class="ot">=</span> <span class="cf">function</span>(x, y) <span class="fu">call</span>(<span class="st">&quot;+&quot;</span>, x, y)</span>
+<span id="cb18-22"><a href="#cb18-22" tabindex="-1"></a>add_calls <span class="ot">=</span> <span class="fu">Reduce</span>(to_add_call, inner_calls)</span>
+<span id="cb18-23"><a href="#cb18-23" tabindex="-1"></a><span class="fu">print</span>(add_calls)</span>
+<span id="cb18-24"><a href="#cb18-24" tabindex="-1"></a><span class="co"># square(Sepal.Length) + square(Sepal.Width) + square(Petal.Length) + </span></span>
+<span id="cb18-25"><a href="#cb18-25" tabindex="-1"></a><span class="co">#     square(Petal.Width)</span></span>
+<span id="cb18-26"><a href="#cb18-26" tabindex="-1"></a></span>
+<span id="cb18-27"><a href="#cb18-27" tabindex="-1"></a>rms <span class="ot">=</span> <span class="fu">substitute2</span>(</span>
+<span id="cb18-28"><a href="#cb18-28" tabindex="-1"></a>  <span class="at">expr =</span> <span class="fu">outer</span>((add_calls) <span class="sc">/</span> len),</span>
+<span id="cb18-29"><a href="#cb18-29" tabindex="-1"></a>  <span class="at">env =</span> <span class="fu">list</span>(</span>
+<span id="cb18-30"><a href="#cb18-30" tabindex="-1"></a>    <span class="at">outer =</span> outer,</span>
+<span id="cb18-31"><a href="#cb18-31" tabindex="-1"></a>    <span class="at">add_calls =</span> add_calls,</span>
+<span id="cb18-32"><a href="#cb18-32" tabindex="-1"></a>    <span class="at">len =</span> <span class="fu">length</span>(vars)</span>
+<span id="cb18-33"><a href="#cb18-33" tabindex="-1"></a>  )</span>
+<span id="cb18-34"><a href="#cb18-34" tabindex="-1"></a>)</span>
+<span id="cb18-35"><a href="#cb18-35" tabindex="-1"></a><span class="fu">print</span>(rms)</span>
+<span id="cb18-36"><a href="#cb18-36" tabindex="-1"></a><span class="co"># sqrt((square(Sepal.Length) + square(Sepal.Width) + square(Petal.Length) + </span></span>
+<span id="cb18-37"><a href="#cb18-37" tabindex="-1"></a><span class="co">#     square(Petal.Width))/4L)</span></span>
+<span id="cb18-38"><a href="#cb18-38" tabindex="-1"></a></span>
+<span id="cb18-39"><a href="#cb18-39" tabindex="-1"></a>DT[, j, env <span class="ot">=</span> <span class="fu">list</span>(<span class="at">j =</span> rms)]</span>
+<span id="cb18-40"><a href="#cb18-40" tabindex="-1"></a><span class="co">#  [1] 3.172538 2.958462 2.918047 2.874891 3.160696 3.443109 2.948305 3.116488 2.728095 2.994996</span></span>
+<span id="cb18-41"><a href="#cb18-41" tabindex="-1"></a><span class="co"># [11] 3.359315 3.049590</span></span>
+<span id="cb18-42"><a href="#cb18-42" tabindex="-1"></a><span class="co">#  [ reached getOption(&quot;max.print&quot;) -- omitted 138 entries ]</span></span>
+<span id="cb18-43"><a href="#cb18-43" tabindex="-1"></a></span>
+<span id="cb18-44"><a href="#cb18-44" tabindex="-1"></a><span class="co"># same, but skipping last substitute2 call and using add_calls directly</span></span>
+<span id="cb18-45"><a href="#cb18-45" tabindex="-1"></a>DT[, <span class="fu">outer</span>((add_calls) <span class="sc">/</span> len),</span>
+<span id="cb18-46"><a href="#cb18-46" tabindex="-1"></a>   env <span class="ot">=</span> <span class="fu">list</span>(</span>
+<span id="cb18-47"><a href="#cb18-47" tabindex="-1"></a>     <span class="at">outer =</span> outer,</span>
+<span id="cb18-48"><a href="#cb18-48" tabindex="-1"></a>     <span class="at">add_calls =</span> add_calls,</span>
+<span id="cb18-49"><a href="#cb18-49" tabindex="-1"></a>     <span class="at">len =</span> <span class="fu">length</span>(vars)</span>
+<span id="cb18-50"><a href="#cb18-50" tabindex="-1"></a>  )]</span>
+<span id="cb18-51"><a href="#cb18-51" tabindex="-1"></a><span class="co">#  [1] 3.172538 2.958462 2.918047 2.874891 3.160696 3.443109 2.948305 3.116488 2.728095 2.994996</span></span>
+<span id="cb18-52"><a href="#cb18-52" tabindex="-1"></a><span class="co"># [11] 3.359315 3.049590</span></span>
+<span id="cb18-53"><a href="#cb18-53" tabindex="-1"></a><span class="co">#  [ reached getOption(&quot;max.print&quot;) -- omitted 138 entries ]</span></span>
+<span id="cb18-54"><a href="#cb18-54" tabindex="-1"></a></span>
+<span id="cb18-55"><a href="#cb18-55" tabindex="-1"></a><span class="co"># return as data.table</span></span>
+<span id="cb18-56"><a href="#cb18-56" tabindex="-1"></a>j <span class="ot">=</span> <span class="fu">substitute2</span>(j, <span class="fu">list</span>(<span class="at">j =</span> <span class="fu">as.list</span>(<span class="fu">setNames</span>(<span class="at">nm =</span> <span class="fu">c</span>(vars, <span class="st">&quot;Species&quot;</span>, <span class="st">&quot;rms&quot;</span>)))))</span>
+<span id="cb18-57"><a href="#cb18-57" tabindex="-1"></a>j[[<span class="st">&quot;rms&quot;</span>]] <span class="ot">=</span> rms</span>
+<span id="cb18-58"><a href="#cb18-58" tabindex="-1"></a><span class="fu">print</span>(j)</span>
+<span id="cb18-59"><a href="#cb18-59" tabindex="-1"></a><span class="co"># list(Sepal.Length = Sepal.Length, Sepal.Width = Sepal.Width, </span></span>
+<span id="cb18-60"><a href="#cb18-60" tabindex="-1"></a><span class="co">#     Petal.Length = Petal.Length, Petal.Width = Petal.Width, Species = Species, </span></span>
+<span id="cb18-61"><a href="#cb18-61" tabindex="-1"></a><span class="co">#     rms = sqrt((square(Sepal.Length) + square(Sepal.Width) + </span></span>
+<span id="cb18-62"><a href="#cb18-62" tabindex="-1"></a><span class="co">#         square(Petal.Length) + square(Petal.Width))/4L))</span></span>
+<span id="cb18-63"><a href="#cb18-63" tabindex="-1"></a>DT[, j, env <span class="ot">=</span> <span class="fu">list</span>(<span class="at">j =</span> j)]</span>
+<span id="cb18-64"><a href="#cb18-64" tabindex="-1"></a><span class="co">#      Sepal.Length Sepal.Width Petal.Length Petal.Width   Species      rms</span></span>
+<span id="cb18-65"><a href="#cb18-65" tabindex="-1"></a><span class="co">#             &lt;num&gt;       &lt;num&gt;        &lt;num&gt;       &lt;num&gt;    &lt;fctr&gt;    &lt;num&gt;</span></span>
+<span id="cb18-66"><a href="#cb18-66" tabindex="-1"></a><span class="co">#   1:          5.1         3.5          1.4         0.2    setosa 3.172538</span></span>
+<span id="cb18-67"><a href="#cb18-67" tabindex="-1"></a><span class="co">#  [ reached getOption(&quot;max.print&quot;) -- omitted 10 rows ]</span></span>
+<span id="cb18-68"><a href="#cb18-68" tabindex="-1"></a></span>
+<span id="cb18-69"><a href="#cb18-69" tabindex="-1"></a><span class="co"># alternatively</span></span>
+<span id="cb18-70"><a href="#cb18-70" tabindex="-1"></a>j <span class="ot">=</span> <span class="fu">as.call</span>(<span class="fu">c</span>(</span>
+<span id="cb18-71"><a href="#cb18-71" tabindex="-1"></a>  <span class="fu">quote</span>(list),</span>
+<span id="cb18-72"><a href="#cb18-72" tabindex="-1"></a>  <span class="fu">lapply</span>(<span class="fu">setNames</span>(<span class="at">nm =</span> vars), as.name),</span>
+<span id="cb18-73"><a href="#cb18-73" tabindex="-1"></a>  <span class="fu">list</span>(<span class="at">Species =</span> <span class="fu">as.name</span>(<span class="st">&quot;Species&quot;</span>)),</span>
+<span id="cb18-74"><a href="#cb18-74" tabindex="-1"></a>  <span class="fu">list</span>(<span class="at">rms =</span> rms)</span>
+<span id="cb18-75"><a href="#cb18-75" tabindex="-1"></a>))</span>
+<span id="cb18-76"><a href="#cb18-76" tabindex="-1"></a><span class="fu">print</span>(j)</span>
+<span id="cb18-77"><a href="#cb18-77" tabindex="-1"></a><span class="co"># list(Sepal.Length = Sepal.Length, Sepal.Width = Sepal.Width, </span></span>
+<span id="cb18-78"><a href="#cb18-78" tabindex="-1"></a><span class="co">#     Petal.Length = Petal.Length, Petal.Width = Petal.Width, Species = Species, </span></span>
+<span id="cb18-79"><a href="#cb18-79" tabindex="-1"></a><span class="co">#     rms = sqrt((square(Sepal.Length) + square(Sepal.Width) + </span></span>
+<span id="cb18-80"><a href="#cb18-80" tabindex="-1"></a><span class="co">#         square(Petal.Length) + square(Petal.Width))/4L))</span></span>
+<span id="cb18-81"><a href="#cb18-81" tabindex="-1"></a>DT[, j, env <span class="ot">=</span> <span class="fu">list</span>(<span class="at">j =</span> j)]</span>
+<span id="cb18-82"><a href="#cb18-82" tabindex="-1"></a><span class="co">#      Sepal.Length Sepal.Width Petal.Length Petal.Width   Species      rms</span></span>
+<span id="cb18-83"><a href="#cb18-83" tabindex="-1"></a><span class="co">#             &lt;num&gt;       &lt;num&gt;        &lt;num&gt;       &lt;num&gt;    &lt;fctr&gt;    &lt;num&gt;</span></span>
+<span id="cb18-84"><a href="#cb18-84" tabindex="-1"></a><span class="co">#   1:          5.1         3.5          1.4         0.2    setosa 3.172538</span></span>
+<span id="cb18-85"><a href="#cb18-85" tabindex="-1"></a><span class="co">#  [ reached getOption(&quot;max.print&quot;) -- omitted 10 rows ]</span></span></code></pre></div>
+</div>
+</div>
+<div id="retired-interfaces" class="section level2">
+<h2>Retired interfaces</h2>
+<p>In <code>[.data.table</code>, it is also possible to use other
+mechanisms for variable substitution or for passing quoted expressions.
+These include <code>get</code> and <code>mget</code> for inline
+injection of variables by providing their names as strings, and
+<code>eval</code> that tells <code>[.data.table</code> that the
+expression we passed into an argument is a quoted expression and that it
+should be handled differently. Those interfaces should now be considered
+retired and we recommend using the new <code>env</code> argument,
+instead.</p>
+<div id="get" class="section level3">
+<h3><code>get</code></h3>
+<div class="sourceCode" id="cb19"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb19-1"><a href="#cb19-1" tabindex="-1"></a>v1 <span class="ot">=</span> <span class="st">&quot;Petal.Width&quot;</span></span>
+<span id="cb19-2"><a href="#cb19-2" tabindex="-1"></a>v2 <span class="ot">=</span> <span class="st">&quot;Sepal.Width&quot;</span></span>
+<span id="cb19-3"><a href="#cb19-3" tabindex="-1"></a></span>
+<span id="cb19-4"><a href="#cb19-4" tabindex="-1"></a>DT[, .(<span class="at">total =</span> <span class="fu">sum</span>(<span class="fu">get</span>(v1), <span class="fu">get</span>(v2)))]</span>
+<span id="cb19-5"><a href="#cb19-5" tabindex="-1"></a><span class="co">#    total</span></span>
+<span id="cb19-6"><a href="#cb19-6" tabindex="-1"></a><span class="co">#    &lt;num&gt;</span></span>
+<span id="cb19-7"><a href="#cb19-7" tabindex="-1"></a><span class="co"># 1: 638.5</span></span>
+<span id="cb19-8"><a href="#cb19-8" tabindex="-1"></a></span>
+<span id="cb19-9"><a href="#cb19-9" tabindex="-1"></a>DT[, .(<span class="at">total =</span> <span class="fu">sum</span>(v1, v2)),</span>
+<span id="cb19-10"><a href="#cb19-10" tabindex="-1"></a>   env <span class="ot">=</span> <span class="fu">list</span>(<span class="at">v1 =</span> v1, <span class="at">v2 =</span> v2)]</span>
+<span id="cb19-11"><a href="#cb19-11" tabindex="-1"></a><span class="co">#    total</span></span>
+<span id="cb19-12"><a href="#cb19-12" tabindex="-1"></a><span class="co">#    &lt;num&gt;</span></span>
+<span id="cb19-13"><a href="#cb19-13" tabindex="-1"></a><span class="co"># 1: 638.5</span></span></code></pre></div>
+</div>
+<div id="mget" class="section level3">
+<h3><code>mget</code></h3>
+<div class="sourceCode" id="cb20"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb20-1"><a href="#cb20-1" tabindex="-1"></a>v <span class="ot">=</span> <span class="fu">c</span>(<span class="st">&quot;Petal.Width&quot;</span>, <span class="st">&quot;Sepal.Width&quot;</span>)</span>
+<span id="cb20-2"><a href="#cb20-2" tabindex="-1"></a></span>
+<span id="cb20-3"><a href="#cb20-3" tabindex="-1"></a>DT[, <span class="fu">lapply</span>(<span class="fu">mget</span>(v), mean)]</span>
+<span id="cb20-4"><a href="#cb20-4" tabindex="-1"></a><span class="co">#    Petal.Width Sepal.Width</span></span>
+<span id="cb20-5"><a href="#cb20-5" tabindex="-1"></a><span class="co">#          &lt;num&gt;       &lt;num&gt;</span></span>
+<span id="cb20-6"><a href="#cb20-6" tabindex="-1"></a><span class="co"># 1:    1.199333    3.057333</span></span>
+<span id="cb20-7"><a href="#cb20-7" tabindex="-1"></a></span>
+<span id="cb20-8"><a href="#cb20-8" tabindex="-1"></a>DT[, <span class="fu">lapply</span>(v, mean),</span>
+<span id="cb20-9"><a href="#cb20-9" tabindex="-1"></a>   env <span class="ot">=</span> <span class="fu">list</span>(<span class="at">v =</span> <span class="fu">as.list</span>(v))]</span>
+<span id="cb20-10"><a href="#cb20-10" tabindex="-1"></a><span class="co">#          V1       V2</span></span>
+<span id="cb20-11"><a href="#cb20-11" tabindex="-1"></a><span class="co">#       &lt;num&gt;    &lt;num&gt;</span></span>
+<span id="cb20-12"><a href="#cb20-12" tabindex="-1"></a><span class="co"># 1: 1.199333 3.057333</span></span>
+<span id="cb20-13"><a href="#cb20-13" tabindex="-1"></a></span>
+<span id="cb20-14"><a href="#cb20-14" tabindex="-1"></a>DT[, <span class="fu">lapply</span>(v, mean),</span>
+<span id="cb20-15"><a href="#cb20-15" tabindex="-1"></a>   env <span class="ot">=</span> <span class="fu">list</span>(<span class="at">v =</span> <span class="fu">as.list</span>(<span class="fu">setNames</span>(<span class="at">nm =</span> v)))]</span>
+<span id="cb20-16"><a href="#cb20-16" tabindex="-1"></a><span class="co">#    Petal.Width Sepal.Width</span></span>
+<span id="cb20-17"><a href="#cb20-17" tabindex="-1"></a><span class="co">#          &lt;num&gt;       &lt;num&gt;</span></span>
+<span id="cb20-18"><a href="#cb20-18" tabindex="-1"></a><span class="co"># 1:    1.199333    3.057333</span></span></code></pre></div>
+</div>
+<div id="eval" class="section level3">
+<h3><code>eval</code></h3>
+<p>Instead of using <code>eval</code> function we can provide quoted
+expression into the element of <code>env</code> argument, no extra
+<code>eval</code> call is needed then.</p>
+<div class="sourceCode" id="cb21"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb21-1"><a href="#cb21-1" tabindex="-1"></a>cl <span class="ot">=</span> <span class="fu">quote</span>(</span>
+<span id="cb21-2"><a href="#cb21-2" tabindex="-1"></a>  .(<span class="at">Petal.Width =</span> <span class="fu">mean</span>(Petal.Width), <span class="at">Sepal.Width =</span> <span class="fu">mean</span>(Sepal.Width))</span>
+<span id="cb21-3"><a href="#cb21-3" tabindex="-1"></a>)</span>
+<span id="cb21-4"><a href="#cb21-4" tabindex="-1"></a></span>
+<span id="cb21-5"><a href="#cb21-5" tabindex="-1"></a>DT[, <span class="fu">eval</span>(cl)]</span>
+<span id="cb21-6"><a href="#cb21-6" tabindex="-1"></a><span class="co">#    Petal.Width Sepal.Width</span></span>
+<span id="cb21-7"><a href="#cb21-7" tabindex="-1"></a><span class="co">#          &lt;num&gt;       &lt;num&gt;</span></span>
+<span id="cb21-8"><a href="#cb21-8" tabindex="-1"></a><span class="co"># 1:    1.199333    3.057333</span></span>
+<span id="cb21-9"><a href="#cb21-9" tabindex="-1"></a></span>
+<span id="cb21-10"><a href="#cb21-10" tabindex="-1"></a>DT[, cl, env <span class="ot">=</span> <span class="fu">list</span>(<span class="at">cl =</span> cl)]</span>
+<span id="cb21-11"><a href="#cb21-11" tabindex="-1"></a><span class="co">#    Petal.Width Sepal.Width</span></span>
+<span id="cb21-12"><a href="#cb21-12" tabindex="-1"></a><span class="co">#          &lt;num&gt;       &lt;num&gt;</span></span>
+<span id="cb21-13"><a href="#cb21-13" tabindex="-1"></a><span class="co"># 1:    1.199333    3.057333</span></span></code></pre></div>
+</div>
+</div>
+
+
+
+<!-- code folding -->
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>

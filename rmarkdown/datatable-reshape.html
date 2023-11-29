@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+
+<meta name="date" content="2023-11-29" />
+
+<title>Efficient reshaping using data.tables</title>
+
+<script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
+// be compatible with the behavior of Pandoc < 2.8).
+document.addEventListener('DOMContentLoaded', function(e) {
+  var hs = document.querySelectorAll("div.section[class*='level'] > :first-child");
+  var i, h, a;
+  for (i = 0; i < hs.length; i++) {
+    h = hs[i];
+    if (!/^h[1-6]$/i.test(h.tagName)) continue;  // it should be a header h1-h6
+    a = h.attributes;
+    while (a.length > 0) h.removeAttribute(a[0].name);
+  }
+});
+</script>
+
+<style type="text/css">
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+span.underline{text-decoration: underline;}
+div.column{display: inline-block; vertical-align: top; width: 50%;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+</style>
+
+
+
+<style type="text/css">
+code {
+white-space: pre;
+}
+.sourceCode {
+overflow: visible;
+}
+</style>
+<style type="text/css" data-origin="pandoc">
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+{ counter-reset: source-line 0; }
+pre.numberSource code > span
+{ position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+{ content: counter(source-line);
+position: relative; left: -1em; text-align: right; vertical-align: baseline;
+border: none; display: inline-block;
+-webkit-touch-callout: none; -webkit-user-select: none;
+-khtml-user-select: none; -moz-user-select: none;
+-ms-user-select: none; user-select: none;
+padding: 0 4px; width: 4em;
+color: #aaaaaa;
+}
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa; padding-left: 4px; }
+div.sourceCode
+{ }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } 
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.at { color: #7d9029; } 
+code span.bn { color: #40a070; } 
+code span.bu { color: #008000; } 
+code span.cf { color: #007020; font-weight: bold; } 
+code span.ch { color: #4070a0; } 
+code span.cn { color: #880000; } 
+code span.co { color: #60a0b0; font-style: italic; } 
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.do { color: #ba2121; font-style: italic; } 
+code span.dt { color: #902000; } 
+code span.dv { color: #40a070; } 
+code span.er { color: #ff0000; font-weight: bold; } 
+code span.ex { } 
+code span.fl { color: #40a070; } 
+code span.fu { color: #06287e; } 
+code span.im { color: #008000; font-weight: bold; } 
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.kw { color: #007020; font-weight: bold; } 
+code span.op { color: #666666; } 
+code span.ot { color: #007020; } 
+code span.pp { color: #bc7a00; } 
+code span.sc { color: #4070a0; } 
+code span.ss { color: #bb6688; } 
+code span.st { color: #4070a0; } 
+code span.va { color: #19177c; } 
+code span.vs { color: #4070a0; } 
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } 
+</style>
+<script>
+// apply pandoc div.sourceCode style to pre.sourceCode instead
+(function() {
+  var sheets = document.styleSheets;
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
+    try { var rules = sheets[i].cssRules; } catch (e) { continue; }
+    var j = 0;
+    while (j < rules.length) {
+      var rule = rules[j];
+      // check if there is a div.sourceCode rule
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") {
+        j++;
+        continue;
+      }
+      var style = rule.style.cssText;
+      // check if color or background-color is set
+      if (rule.style.color === '' && rule.style.backgroundColor === '') {
+        j++;
+        continue;
+      }
+      // replace div.sourceCode by a pre.sourceCode rule
+      sheets[i].deleteRule(j);
+      sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
+    }
+  }
+})();
+</script>
+
+
+
+
+<style type="text/css">body {
+background-color: #fff;
+margin: 1em auto;
+max-width: 700px;
+overflow: visible;
+padding-left: 2em;
+padding-right: 2em;
+font-family: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+font-size: 14px;
+line-height: 1.35;
+}
+#TOC {
+clear: both;
+margin: 0 0 10px 10px;
+padding: 4px;
+width: 400px;
+border: 1px solid #CCCCCC;
+border-radius: 5px;
+background-color: #f6f6f6;
+font-size: 13px;
+line-height: 1.3;
+}
+#TOC .toctitle {
+font-weight: bold;
+font-size: 15px;
+margin-left: 5px;
+}
+#TOC ul {
+padding-left: 40px;
+margin-left: -1.5em;
+margin-top: 5px;
+margin-bottom: 5px;
+}
+#TOC ul ul {
+margin-left: -2em;
+}
+#TOC li {
+line-height: 16px;
+}
+table {
+margin: 1em auto;
+border-width: 1px;
+border-color: #DDDDDD;
+border-style: outset;
+border-collapse: collapse;
+}
+table th {
+border-width: 2px;
+padding: 5px;
+border-style: inset;
+}
+table td {
+border-width: 1px;
+border-style: inset;
+line-height: 18px;
+padding: 5px 5px;
+}
+table, table th, table td {
+border-left-style: none;
+border-right-style: none;
+}
+table thead, table tr.even {
+background-color: #f7f7f7;
+}
+p {
+margin: 0.5em 0;
+}
+blockquote {
+background-color: #f6f6f6;
+padding: 0.25em 0.75em;
+}
+hr {
+border-style: solid;
+border: none;
+border-top: 1px solid #777;
+margin: 28px 0;
+}
+dl {
+margin-left: 0;
+}
+dl dd {
+margin-bottom: 13px;
+margin-left: 13px;
+}
+dl dt {
+font-weight: bold;
+}
+ul {
+margin-top: 0;
+}
+ul li {
+list-style: circle outside;
+}
+ul ul {
+margin-bottom: 0;
+}
+pre, code {
+background-color: #f7f7f7;
+border-radius: 3px;
+color: #333;
+white-space: pre-wrap; 
+}
+pre {
+border-radius: 3px;
+margin: 5px 0px 10px 0px;
+padding: 10px;
+}
+pre:not([class]) {
+background-color: #f7f7f7;
+}
+code {
+font-family: Consolas, Monaco, 'Courier New', monospace;
+font-size: 85%;
+}
+p > code, li > code {
+padding: 2px 0px;
+}
+div.figure {
+text-align: center;
+}
+img {
+background-color: #FFFFFF;
+padding: 2px;
+border: 1px solid #DDDDDD;
+border-radius: 3px;
+border: 1px solid #CCCCCC;
+margin: 0 5px;
+}
+h1 {
+margin-top: 0;
+font-size: 35px;
+line-height: 40px;
+}
+h2 {
+border-bottom: 4px solid #f7f7f7;
+padding-top: 10px;
+padding-bottom: 2px;
+font-size: 145%;
+}
+h3 {
+border-bottom: 2px solid #f7f7f7;
+padding-top: 10px;
+font-size: 120%;
+}
+h4 {
+border-bottom: 1px solid #f7f7f7;
+margin-left: 8px;
+font-size: 105%;
+}
+h5, h6 {
+border-bottom: 1px solid #ccc;
+font-size: 105%;
+}
+a {
+color: #0033dd;
+text-decoration: none;
+}
+a:hover {
+color: #6666ff; }
+a:visited {
+color: #800080; }
+a:visited:hover {
+color: #BB00BB; }
+a[href^="http:"] {
+text-decoration: underline; }
+a[href^="https:"] {
+text-decoration: underline; }
+
+code > span.kw { color: #555; font-weight: bold; } 
+code > span.dt { color: #902000; } 
+code > span.dv { color: #40a070; } 
+code > span.bn { color: #d14; } 
+code > span.fl { color: #d14; } 
+code > span.ch { color: #d14; } 
+code > span.st { color: #d14; } 
+code > span.co { color: #888888; font-style: italic; } 
+code > span.ot { color: #007020; } 
+code > span.al { color: #ff0000; font-weight: bold; } 
+code > span.fu { color: #900; font-weight: bold; } 
+code > span.er { color: #a61717; background-color: #e3d2d2; } 
+</style>
+
+
+
+
+</head>
+
+<body>
+
+
+
+
+<h1 class="title toc-ignore">Efficient reshaping using data.tables</h1>
+<h4 class="date">2023-11-29</h4>
+
+
+
+<p>This vignette discusses the default usage of reshaping functions
+<code>melt</code> (wide to long) and <code>dcast</code> (long to wide)
+for <em>data.tables</em> as well as the <strong>new extended
+functionalities</strong> of melting and casting on <em>multiple
+columns</em> available from <code>v1.9.6</code>.</p>
+<hr />
+<div id="data" class="section level2">
+<h2>Data</h2>
+<p>We will load the data sets directly within sections.</p>
+</div>
+<div id="introduction" class="section level2">
+<h2>Introduction</h2>
+<p>The <code>melt</code> and <code>dcast</code> functions for
+<code>data.table</code>s are for reshaping wide-to-long and
+long-to-wide, respectively; the implementations are specifically
+designed with large in-memory data (e.g. 10Gb) in mind.</p>
+<p>In this vignette, we will</p>
+<ol style="list-style-type: decimal">
+<li><p>First briefly look at the default <code>melt</code>ing and
+<code>dcast</code>ing of <code>data.table</code>s to convert them from
+<em>wide</em> to <em>long</em> format and <em>vice versa</em></p></li>
+<li><p>Look at scenarios where the current functionalities become
+cumbersome and inefficient</p></li>
+<li><p>Finally look at the new improvements to both <code>melt</code>
+and <code>dcast</code> methods for <code>data.table</code>s to handle
+multiple columns simultaneously.</p></li>
+</ol>
+<p>The extended functionalities are in line with
+<code>data.table</code>’s philosophy of performing operations
+efficiently and in a straightforward manner.</p>
+</div>
+<div id="default-functionality" class="section level2">
+<h2>1. Default functionality</h2>
+<div id="a-melting-data.tables-wide-to-long" class="section level3">
+<h3>a) <code>melt</code>ing <code>data.table</code>s (wide to long)</h3>
+<p>Suppose we have a <code>data.table</code> (artificial data) as shown
+below:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a>s1 <span class="ot">&lt;-</span> <span class="st">&quot;family_id age_mother dob_child1 dob_child2 dob_child3</span></span>
+<span id="cb1-2"><a href="#cb1-2" tabindex="-1"></a><span class="st">1         30 1998-11-26 2000-01-29         NA</span></span>
+<span id="cb1-3"><a href="#cb1-3" tabindex="-1"></a><span class="st">2         27 1996-06-22         NA         NA</span></span>
+<span id="cb1-4"><a href="#cb1-4" tabindex="-1"></a><span class="st">3         26 2002-07-11 2004-04-05 2007-09-02</span></span>
+<span id="cb1-5"><a href="#cb1-5" tabindex="-1"></a><span class="st">4         32 2004-10-10 2009-08-27 2012-07-21</span></span>
+<span id="cb1-6"><a href="#cb1-6" tabindex="-1"></a><span class="st">5         29 2000-12-05 2005-02-28         NA&quot;</span></span>
+<span id="cb1-7"><a href="#cb1-7" tabindex="-1"></a>DT <span class="ot">&lt;-</span> <span class="fu">fread</span>(s1)</span>
+<span id="cb1-8"><a href="#cb1-8" tabindex="-1"></a>DT</span>
+<span id="cb1-9"><a href="#cb1-9" tabindex="-1"></a><span class="co">#    family_id age_mother dob_child1 dob_child2 dob_child3</span></span>
+<span id="cb1-10"><a href="#cb1-10" tabindex="-1"></a><span class="co">#  [ reached getOption(&quot;max.print&quot;) -- omitted 6 rows ]</span></span>
+<span id="cb1-11"><a href="#cb1-11" tabindex="-1"></a><span class="do">## dob stands for date of birth.</span></span>
+<span id="cb1-12"><a href="#cb1-12" tabindex="-1"></a></span>
+<span id="cb1-13"><a href="#cb1-13" tabindex="-1"></a><span class="fu">str</span>(DT)</span>
+<span id="cb1-14"><a href="#cb1-14" tabindex="-1"></a><span class="co"># Classes &#39;data.table&#39; and &#39;data.frame&#39;:    5 obs. of  5 variables:</span></span>
+<span id="cb1-15"><a href="#cb1-15" tabindex="-1"></a><span class="co">#  $ family_id : int  1 2 3 4 5</span></span>
+<span id="cb1-16"><a href="#cb1-16" tabindex="-1"></a><span class="co">#  $ age_mother: int  30 27 26 32 29</span></span>
+<span id="cb1-17"><a href="#cb1-17" tabindex="-1"></a><span class="co">#  $ dob_child1: IDate, format: &quot;1998-11-26&quot; &quot;1996-06-22&quot; &quot;2002-07-11&quot; ...</span></span>
+<span id="cb1-18"><a href="#cb1-18" tabindex="-1"></a><span class="co">#  $ dob_child2: IDate, format: &quot;2000-01-29&quot; NA &quot;2004-04-05&quot; ...</span></span>
+<span id="cb1-19"><a href="#cb1-19" tabindex="-1"></a><span class="co">#  $ dob_child3: IDate, format: NA NA &quot;2007-09-02&quot; ...</span></span>
+<span id="cb1-20"><a href="#cb1-20" tabindex="-1"></a><span class="co">#  - attr(*, &quot;.internal.selfref&quot;)=&lt;externalptr&gt;</span></span></code></pre></div>
+<div id="convert-dt-to-long-form-where-each-dob-is-a-separate-observation." class="section level4">
+<h4>- Convert <code>DT</code> to <em>long</em> form where each
+<code>dob</code> is a separate observation.</h4>
+<p>We could accomplish this using <code>melt()</code> by specifying
+<code>id.vars</code> and <code>measure.vars</code> arguments as
+follows:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a>DT.m1 <span class="ot">=</span> <span class="fu">melt</span>(DT, <span class="at">id.vars =</span> <span class="fu">c</span>(<span class="st">&quot;family_id&quot;</span>, <span class="st">&quot;age_mother&quot;</span>),</span>
+<span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a>                <span class="at">measure.vars =</span> <span class="fu">c</span>(<span class="st">&quot;dob_child1&quot;</span>, <span class="st">&quot;dob_child2&quot;</span>, <span class="st">&quot;dob_child3&quot;</span>))</span>
+<span id="cb2-3"><a href="#cb2-3" tabindex="-1"></a>DT.m1</span>
+<span id="cb2-4"><a href="#cb2-4" tabindex="-1"></a><span class="co">#     family_id age_mother   variable      value</span></span>
+<span id="cb2-5"><a href="#cb2-5" tabindex="-1"></a><span class="co">#         &lt;int&gt;      &lt;int&gt;     &lt;fctr&gt;     &lt;IDat&gt;</span></span>
+<span id="cb2-6"><a href="#cb2-6" tabindex="-1"></a><span class="co">#  [ reached getOption(&quot;max.print&quot;) -- omitted 15 rows ]</span></span>
+<span id="cb2-7"><a href="#cb2-7" tabindex="-1"></a><span class="fu">str</span>(DT.m1)</span>
+<span id="cb2-8"><a href="#cb2-8" tabindex="-1"></a><span class="co"># Classes &#39;data.table&#39; and &#39;data.frame&#39;:    15 obs. of  4 variables:</span></span>
+<span id="cb2-9"><a href="#cb2-9" tabindex="-1"></a><span class="co">#  $ family_id : int  1 2 3 4 5 1 2 3 4 5 ...</span></span>
+<span id="cb2-10"><a href="#cb2-10" tabindex="-1"></a><span class="co">#  $ age_mother: int  30 27 26 32 29 30 27 26 32 29 ...</span></span>
+<span id="cb2-11"><a href="#cb2-11" tabindex="-1"></a><span class="co">#  $ variable  : Factor w/ 3 levels &quot;dob_child1&quot;,&quot;dob_child2&quot;,..: 1 1 1 1 1 2 2 2 2 2 ...</span></span>
+<span id="cb2-12"><a href="#cb2-12" tabindex="-1"></a><span class="co">#  $ value     : IDate, format: &quot;1998-11-26&quot; &quot;1996-06-22&quot; &quot;2002-07-11&quot; ...</span></span>
+<span id="cb2-13"><a href="#cb2-13" tabindex="-1"></a><span class="co">#  - attr(*, &quot;.internal.selfref&quot;)=&lt;externalptr&gt;</span></span></code></pre></div>
+</div>
+<div id="section" class="section level4 bs-callout bs-callout-info">
+<h4 class="bs-callout bs-callout-info"></h4>
+<ul>
+<li><p><code>measure.vars</code> specify the set of columns we would
+like to collapse (or combine) together.</p></li>
+<li><p>We can also specify column <em>indices</em> instead of
+<em>names</em>.</p></li>
+<li><p>By default, <code>variable</code> column is of type
+<code>factor</code>. Set <code>variable.factor</code> argument to
+<code>FALSE</code> if you’d like to return a
+<em><code>character</code></em> vector instead.</p></li>
+<li><p>By default, the molten columns are automatically named
+<code>variable</code> and <code>value</code>.</p></li>
+<li><p><code>melt</code> preserves column attributes in result.</p></li>
+</ul>
+</div>
+<div id="name-the-variable-and-value-columns-to-child-and-dob-respectively" class="section level4">
+<h4>- Name the <code>variable</code> and <code>value</code> columns to
+<code>child</code> and <code>dob</code> respectively</h4>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a>DT.m1 <span class="ot">=</span> <span class="fu">melt</span>(DT, <span class="at">measure.vars =</span> <span class="fu">c</span>(<span class="st">&quot;dob_child1&quot;</span>, <span class="st">&quot;dob_child2&quot;</span>, <span class="st">&quot;dob_child3&quot;</span>),</span>
+<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a>               <span class="at">variable.name =</span> <span class="st">&quot;child&quot;</span>, <span class="at">value.name =</span> <span class="st">&quot;dob&quot;</span>)</span>
+<span id="cb3-3"><a href="#cb3-3" tabindex="-1"></a>DT.m1</span>
+<span id="cb3-4"><a href="#cb3-4" tabindex="-1"></a><span class="co">#     family_id age_mother      child        dob</span></span>
+<span id="cb3-5"><a href="#cb3-5" tabindex="-1"></a><span class="co">#         &lt;int&gt;      &lt;int&gt;     &lt;fctr&gt;     &lt;IDat&gt;</span></span>
+<span id="cb3-6"><a href="#cb3-6" tabindex="-1"></a><span class="co">#  [ reached getOption(&quot;max.print&quot;) -- omitted 15 rows ]</span></span></code></pre></div>
+</div>
+<div id="section-1" class="section level4 bs-callout bs-callout-info">
+<h4 class="bs-callout bs-callout-info"></h4>
+<ul>
+<li><p>By default, when one of <code>id.vars</code> or
+<code>measure.vars</code> is missing, the rest of the columns are
+<em>automatically assigned</em> to the missing argument.</p></li>
+<li><p>When neither <code>id.vars</code> nor <code>measure.vars</code>
+are specified, as mentioned under <code>?melt</code>, all
+<em>non</em>-<code>numeric</code>, <code>integer</code>,
+<code>logical</code> columns will be assigned to
+<code>id.vars</code>.</p>
+<p>In addition, a warning message is issued highlighting the columns
+that are automatically considered to be <code>id.vars</code>.</p></li>
+</ul>
+</div>
+</div>
+<div id="b-dcasting-data.tables-long-to-wide" class="section level3">
+<h3>b) <code>dcast</code>ing <code>data.table</code>s (long to
+wide)</h3>
+<p>In the previous section, we saw how to get from wide form to long
+form. Let’s see the reverse operation in this section.</p>
+<div id="how-can-we-get-back-to-the-original-data-table-dt-from-dt.m1" class="section level4">
+<h4>- How can we get back to the original data table <code>DT</code>
+from <code>DT.m1</code>?</h4>
+<p>That is, we’d like to collect all <em>child</em> observations
+corresponding to each <code>family_id, age_mother</code> together under
+the same row. We can accomplish it using <code>dcast</code> as
+follows:</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a><span class="fu">dcast</span>(DT.m1, family_id <span class="sc">+</span> age_mother <span class="sc">~</span> child, <span class="at">value.var =</span> <span class="st">&quot;dob&quot;</span>)</span>
+<span id="cb4-2"><a href="#cb4-2" tabindex="-1"></a><span class="co"># Key: &lt;family_id, age_mother&gt;</span></span>
+<span id="cb4-3"><a href="#cb4-3" tabindex="-1"></a><span class="co">#    family_id age_mother dob_child1 dob_child2 dob_child3</span></span>
+<span id="cb4-4"><a href="#cb4-4" tabindex="-1"></a><span class="co">#  [ reached getOption(&quot;max.print&quot;) -- omitted 6 rows ]</span></span></code></pre></div>
+</div>
+<div id="section-2" class="section level4 bs-callout bs-callout-info">
+<h4 class="bs-callout bs-callout-info"></h4>
+<ul>
+<li><p><code>dcast</code> uses <em>formula</em> interface. The variables
+on the <em>LHS</em> of formula represents the <em>id</em> vars and
+<em>RHS</em> the <em>measure</em> vars.</p></li>
+<li><p><code>value.var</code> denotes the column to be filled in with
+while casting to wide format.</p></li>
+<li><p><code>dcast</code> also tries to preserve attributes in result
+wherever possible.</p></li>
+</ul>
+</div>
+<div id="starting-from-dt.m1-how-can-we-get-the-number-of-children-in-each-family" class="section level4">
+<h4>- Starting from <code>DT.m1</code>, how can we get the number of
+children in each family?</h4>
+<p>You can also pass a function to aggregate by in <code>dcast</code>
+with the argument <code>fun.aggregate</code>. This is particularly
+essential when the formula provided does not identify single observation
+for each cell.</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a><span class="fu">dcast</span>(DT.m1, family_id <span class="sc">~</span> ., <span class="at">fun.agg =</span> <span class="cf">function</span>(x) <span class="fu">sum</span>(<span class="sc">!</span><span class="fu">is.na</span>(x)), <span class="at">value.var =</span> <span class="st">&quot;dob&quot;</span>)</span>
+<span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a><span class="co"># Key: &lt;family_id&gt;</span></span>
+<span id="cb5-3"><a href="#cb5-3" tabindex="-1"></a><span class="co">#    family_id     .</span></span>
+<span id="cb5-4"><a href="#cb5-4" tabindex="-1"></a><span class="co">#        &lt;int&gt; &lt;int&gt;</span></span>
+<span id="cb5-5"><a href="#cb5-5" tabindex="-1"></a><span class="co"># 1:         1     2</span></span>
+<span id="cb5-6"><a href="#cb5-6" tabindex="-1"></a><span class="co">#  [ reached getOption(&quot;max.print&quot;) -- omitted 4 rows ]</span></span></code></pre></div>
+<p>Check <code>?dcast</code> for other useful arguments and additional
+examples.</p>
+</div>
+</div>
+</div>
+<div id="limitations-in-current-meltdcast-approaches" class="section level2">
+<h2>2. Limitations in current <code>melt/dcast</code> approaches</h2>
+<p>So far we’ve seen features of <code>melt</code> and
+<code>dcast</code> that are implemented efficiently for
+<code>data.table</code>s, using internal <code>data.table</code>
+machinery (<em>fast radix ordering</em>, <em>binary search</em>
+etc..).</p>
+<p>However, there are situations we might run into where the desired
+operation is not expressed in a straightforward manner. For example,
+consider the <code>data.table</code> shown below:</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a>s2 <span class="ot">&lt;-</span> <span class="st">&quot;family_id age_mother dob_child1 dob_child2 dob_child3 gender_child1 gender_child2 gender_child3</span></span>
+<span id="cb6-2"><a href="#cb6-2" tabindex="-1"></a><span class="st">1         30 1998-11-26 2000-01-29         NA             1             2            NA</span></span>
+<span id="cb6-3"><a href="#cb6-3" tabindex="-1"></a><span class="st">2         27 1996-06-22         NA         NA             2            NA            NA</span></span>
+<span id="cb6-4"><a href="#cb6-4" tabindex="-1"></a><span class="st">3         26 2002-07-11 2004-04-05 2007-09-02             2             2             1</span></span>
+<span id="cb6-5"><a href="#cb6-5" tabindex="-1"></a><span class="st">4         32 2004-10-10 2009-08-27 2012-07-21             1             1             1</span></span>
+<span id="cb6-6"><a href="#cb6-6" tabindex="-1"></a><span class="st">5         29 2000-12-05 2005-02-28         NA             2             1            NA&quot;</span></span>
+<span id="cb6-7"><a href="#cb6-7" tabindex="-1"></a>DT <span class="ot">&lt;-</span> <span class="fu">fread</span>(s2)</span>
+<span id="cb6-8"><a href="#cb6-8" tabindex="-1"></a>DT</span>
+<span id="cb6-9"><a href="#cb6-9" tabindex="-1"></a><span class="co">#    family_id age_mother dob_child1 dob_child2 dob_child3 gender_child1 gender_child2 gender_child3</span></span>
+<span id="cb6-10"><a href="#cb6-10" tabindex="-1"></a><span class="co">#  [ reached getOption(&quot;max.print&quot;) -- omitted 6 rows ]</span></span>
+<span id="cb6-11"><a href="#cb6-11" tabindex="-1"></a><span class="do">## 1 = female, 2 = male</span></span></code></pre></div>
+<p>And you’d like to combine (<code>melt</code>) all the
+<code>dob</code> columns together, and <code>gender</code> columns
+together. Using the current functionality, we can do something like
+this:</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a>DT.m1 <span class="ot">=</span> <span class="fu">melt</span>(DT, <span class="at">id =</span> <span class="fu">c</span>(<span class="st">&quot;family_id&quot;</span>, <span class="st">&quot;age_mother&quot;</span>))</span>
+<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a>DT.m1[, <span class="fu">c</span>(<span class="st">&quot;variable&quot;</span>, <span class="st">&quot;child&quot;</span>) <span class="sc">:=</span> <span class="fu">tstrsplit</span>(variable, <span class="st">&quot;_&quot;</span>, <span class="at">fixed =</span> <span class="cn">TRUE</span>)]</span>
+<span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a>DT.c1 <span class="ot">=</span> <span class="fu">dcast</span>(DT.m1, family_id <span class="sc">+</span> age_mother <span class="sc">+</span> child <span class="sc">~</span> variable, <span class="at">value.var =</span> <span class="st">&quot;value&quot;</span>)</span>
+<span id="cb7-4"><a href="#cb7-4" tabindex="-1"></a>DT.c1</span>
+<span id="cb7-5"><a href="#cb7-5" tabindex="-1"></a><span class="co"># Key: &lt;family_id, age_mother, child&gt;</span></span>
+<span id="cb7-6"><a href="#cb7-6" tabindex="-1"></a><span class="co">#     family_id age_mother  child        dob     gender</span></span>
+<span id="cb7-7"><a href="#cb7-7" tabindex="-1"></a><span class="co">#  [ reached getOption(&quot;max.print&quot;) -- omitted 16 rows ]</span></span>
+<span id="cb7-8"><a href="#cb7-8" tabindex="-1"></a></span>
+<span id="cb7-9"><a href="#cb7-9" tabindex="-1"></a><span class="fu">str</span>(DT.c1) <span class="do">## gender column is character type now!</span></span>
+<span id="cb7-10"><a href="#cb7-10" tabindex="-1"></a><span class="co"># Classes &#39;data.table&#39; and &#39;data.frame&#39;:    15 obs. of  5 variables:</span></span>
+<span id="cb7-11"><a href="#cb7-11" tabindex="-1"></a><span class="co">#  $ family_id : int  1 1 1 2 2 2 3 3 3 4 ...</span></span>
+<span id="cb7-12"><a href="#cb7-12" tabindex="-1"></a><span class="co">#  $ age_mother: int  30 30 30 27 27 27 26 26 26 32 ...</span></span>
+<span id="cb7-13"><a href="#cb7-13" tabindex="-1"></a><span class="co">#  $ child     : chr  &quot;child1&quot; &quot;child2&quot; &quot;child3&quot; &quot;child1&quot; ...</span></span>
+<span id="cb7-14"><a href="#cb7-14" tabindex="-1"></a><span class="co">#  $ dob       : IDate, format: &quot;1998-11-26&quot; &quot;2000-01-29&quot; NA ...</span></span>
+<span id="cb7-15"><a href="#cb7-15" tabindex="-1"></a><span class="co">#  $ gender    : IDate, format: &quot;1970-01-02&quot; &quot;1970-01-03&quot; NA ...</span></span>
+<span id="cb7-16"><a href="#cb7-16" tabindex="-1"></a><span class="co">#  - attr(*, &quot;.internal.selfref&quot;)=&lt;externalptr&gt; </span></span>
+<span id="cb7-17"><a href="#cb7-17" tabindex="-1"></a><span class="co">#  - attr(*, &quot;sorted&quot;)= chr [1:3] &quot;family_id&quot; &quot;age_mother&quot; &quot;child&quot;</span></span></code></pre></div>
+<div id="issues" class="section level4 bs-callout bs-callout-info">
+<h4 class="bs-callout bs-callout-info">Issues</h4>
+<ol style="list-style-type: decimal">
+<li><p>What we wanted to do was to combine all the <code>dob</code> and
+<code>gender</code> type columns together respectively. Instead we are
+combining <em>everything</em> together, and then splitting them again. I
+think it’s easy to see that it’s quite roundabout (and inefficient).</p>
+<p>As an analogy, imagine you’ve a closet with four shelves of clothes
+and you’d like to put together the clothes from shelves 1 and 2 together
+(in 1), and 3 and 4 together (in 3). What we are doing is more or less
+to combine all the clothes together, and then split them back on to
+shelves 1 and 3!</p></li>
+<li><p>The columns to <code>melt</code> may be of different types, as in
+this case (<code>character</code> and <code>integer</code> types). By
+<code>melt</code>ing them all together, the columns will be coerced in
+result, as explained by the warning message above and shown from output
+of <code>str(DT.c1)</code>, where <code>gender</code> has been converted
+to <em><code>character</code></em> type.</p></li>
+<li><p>We are generating an additional column by splitting the
+<code>variable</code> column into two columns, whose purpose is quite
+cryptic. We do it because we need it for <em>casting</em> in the next
+step.</p></li>
+<li><p>Finally, we cast the data set. But the issue is it’s a much more
+computationally involved operation than <em>melt</em>. Specifically, it
+requires computing the order of the variables in formula, and that’s
+costly.</p></li>
+</ol>
+<p>In fact, <code>stats::reshape</code> is capable of performing this
+operation in a very straightforward manner. It is an extremely useful
+and often underrated function. You should definitely give it a try!</p>
+</div>
+</div>
+<div id="enhanced-new-functionality" class="section level2">
+<h2>3. Enhanced (new) functionality</h2>
+<div id="a-enhanced-melt" class="section level3">
+<h3>a) Enhanced <code>melt</code></h3>
+<p>Since we’d like for <code>data.table</code>s to perform this
+operation straightforward and efficient using the same interface, we
+went ahead and implemented an <em>additional functionality</em>, where
+we can <code>melt</code> to multiple columns
+<em>simultaneously</em>.</p>
+<div id="melt-multiple-columns-simultaneously" class="section level4">
+<h4>- <code>melt</code> multiple columns simultaneously</h4>
+<p>The idea is quite simple. We pass a list of columns to
+<code>measure.vars</code>, where each element of the list contains the
+columns that should be combined together.</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" tabindex="-1"></a>colA <span class="ot">=</span> <span class="fu">paste0</span>(<span class="st">&quot;dob_child&quot;</span>, <span class="dv">1</span><span class="sc">:</span><span class="dv">3</span>)</span>
+<span id="cb8-2"><a href="#cb8-2" tabindex="-1"></a>colB <span class="ot">=</span> <span class="fu">paste0</span>(<span class="st">&quot;gender_child&quot;</span>, <span class="dv">1</span><span class="sc">:</span><span class="dv">3</span>)</span>
+<span id="cb8-3"><a href="#cb8-3" tabindex="-1"></a>DT.m2 <span class="ot">=</span> <span class="fu">melt</span>(DT, <span class="at">measure =</span> <span class="fu">list</span>(colA, colB), <span class="at">value.name =</span> <span class="fu">c</span>(<span class="st">&quot;dob&quot;</span>, <span class="st">&quot;gender&quot;</span>))</span>
+<span id="cb8-4"><a href="#cb8-4" tabindex="-1"></a>DT.m2</span>
+<span id="cb8-5"><a href="#cb8-5" tabindex="-1"></a><span class="co">#     family_id age_mother variable        dob gender</span></span>
+<span id="cb8-6"><a href="#cb8-6" tabindex="-1"></a><span class="co">#  [ reached getOption(&quot;max.print&quot;) -- omitted 16 rows ]</span></span>
+<span id="cb8-7"><a href="#cb8-7" tabindex="-1"></a></span>
+<span id="cb8-8"><a href="#cb8-8" tabindex="-1"></a><span class="fu">str</span>(DT.m2) <span class="do">## col type is preserved</span></span>
+<span id="cb8-9"><a href="#cb8-9" tabindex="-1"></a><span class="co"># Classes &#39;data.table&#39; and &#39;data.frame&#39;:    15 obs. of  5 variables:</span></span>
+<span id="cb8-10"><a href="#cb8-10" tabindex="-1"></a><span class="co">#  $ family_id : int  1 2 3 4 5 1 2 3 4 5 ...</span></span>
+<span id="cb8-11"><a href="#cb8-11" tabindex="-1"></a><span class="co">#  $ age_mother: int  30 27 26 32 29 30 27 26 32 29 ...</span></span>
+<span id="cb8-12"><a href="#cb8-12" tabindex="-1"></a><span class="co">#  $ variable  : Factor w/ 3 levels &quot;1&quot;,&quot;2&quot;,&quot;3&quot;: 1 1 1 1 1 2 2 2 2 2 ...</span></span>
+<span id="cb8-13"><a href="#cb8-13" tabindex="-1"></a><span class="co">#  $ dob       : IDate, format: &quot;1998-11-26&quot; &quot;1996-06-22&quot; &quot;2002-07-11&quot; ...</span></span>
+<span id="cb8-14"><a href="#cb8-14" tabindex="-1"></a><span class="co">#  $ gender    : int  1 2 2 1 2 2 NA 2 1 1 ...</span></span>
+<span id="cb8-15"><a href="#cb8-15" tabindex="-1"></a><span class="co">#  - attr(*, &quot;.internal.selfref&quot;)=&lt;externalptr&gt;</span></span></code></pre></div>
+</div>
+<div id="section-3" class="section level4 bs-callout bs-callout-info">
+<h4 class="bs-callout bs-callout-info"></h4>
+<ul>
+<li><p>We can remove the <code>variable</code> column if
+necessary.</p></li>
+<li><p>The functionality is implemented entirely in C, and is therefore
+both <em>fast</em> and <em>memory efficient</em> in addition to being
+<em>straightforward</em>.</p></li>
+</ul>
+</div>
+<div id="using-patterns" class="section level4">
+<h4>- Using <code>patterns()</code></h4>
+<p>Usually in these problems, the columns we’d like to melt can be
+distinguished by a common pattern. We can use the function
+<code>patterns()</code>, implemented for convenience, to provide regular
+expressions for the columns to be combined together. The above operation
+can be rewritten as:</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a>DT.m2 <span class="ot">=</span> <span class="fu">melt</span>(DT, <span class="at">measure =</span> <span class="fu">patterns</span>(<span class="st">&quot;^dob&quot;</span>, <span class="st">&quot;^gender&quot;</span>), <span class="at">value.name =</span> <span class="fu">c</span>(<span class="st">&quot;dob&quot;</span>, <span class="st">&quot;gender&quot;</span>))</span>
+<span id="cb9-2"><a href="#cb9-2" tabindex="-1"></a><span class="fu">print</span>(DT.m2, <span class="at">class=</span><span class="cn">TRUE</span>)</span>
+<span id="cb9-3"><a href="#cb9-3" tabindex="-1"></a><span class="co">#     family_id age_mother variable        dob gender</span></span>
+<span id="cb9-4"><a href="#cb9-4" tabindex="-1"></a><span class="co">#  [ reached getOption(&quot;max.print&quot;) -- omitted 16 rows ]</span></span></code></pre></div>
+</div>
+<div id="using-measure-to-specify-measure.vars-via-separator-or-pattern" class="section level4">
+<h4>- Using <code>measure()</code> to specify <code>measure.vars</code>
+via separator or pattern</h4>
+<p>If, as in the data above, the input columns to melt have regular
+names, then we can use <code>measure</code>, which allows specifying the
+columns to melt via a separator or a regex. For example consider the
+iris data,</p>
+<div class="sourceCode" id="cb10"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" tabindex="-1"></a>(<span class="at">two.iris =</span> <span class="fu">data.table</span>(datasets<span class="sc">::</span>iris)[<span class="fu">c</span>(<span class="dv">1</span>,<span class="dv">150</span>)])</span>
+<span id="cb10-2"><a href="#cb10-2" tabindex="-1"></a><span class="co">#    Sepal.Length Sepal.Width Petal.Length Petal.Width   Species</span></span>
+<span id="cb10-3"><a href="#cb10-3" tabindex="-1"></a><span class="co">#  [ reached getOption(&quot;max.print&quot;) -- omitted 3 rows ]</span></span></code></pre></div>
+<p>The iris data has four numeric columns with a regular structure:
+first the flower part, then a period, then the measurement dimension. To
+specify that we want to melt those four columns, we can use
+<code>measure</code> with <code>sep=&quot;.&quot;</code> which means to use
+<code>strsplit</code> on all column names; the columns which result in
+the maximum number of groups after splitting will be used as
+<code>measure.vars</code>:</p>
+<div class="sourceCode" id="cb11"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" tabindex="-1"></a><span class="fu">melt</span>(two.iris, <span class="at">measure.vars =</span> <span class="fu">measure</span>(part, dim, <span class="at">sep=</span><span class="st">&quot;.&quot;</span>))</span>
+<span id="cb11-2"><a href="#cb11-2" tabindex="-1"></a><span class="co">#      Species   part    dim value</span></span>
+<span id="cb11-3"><a href="#cb11-3" tabindex="-1"></a><span class="co">#       &lt;fctr&gt; &lt;char&gt; &lt;char&gt; &lt;num&gt;</span></span>
+<span id="cb11-4"><a href="#cb11-4" tabindex="-1"></a><span class="co">#  [ reached getOption(&quot;max.print&quot;) -- omitted 8 rows ]</span></span></code></pre></div>
+<p>The first two arguments to <code>measure</code> in the code above
+(<code>part</code> and <code>dim</code>) are used to name the output
+columns; the number of arguments must equal the max number of groups
+after splitting with <code>sep</code>.</p>
+<p>If we want two value columns, one for each part, we can use the
+special <code>value.name</code> keyword, which means to output a value
+column for each unique name found in that group:</p>
+<div class="sourceCode" id="cb12"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" tabindex="-1"></a><span class="fu">melt</span>(two.iris, <span class="at">measure.vars =</span> <span class="fu">measure</span>(value.name, dim, <span class="at">sep=</span><span class="st">&quot;.&quot;</span>))</span>
+<span id="cb12-2"><a href="#cb12-2" tabindex="-1"></a><span class="co">#      Species    dim Sepal Petal</span></span>
+<span id="cb12-3"><a href="#cb12-3" tabindex="-1"></a><span class="co">#       &lt;fctr&gt; &lt;char&gt; &lt;num&gt; &lt;num&gt;</span></span>
+<span id="cb12-4"><a href="#cb12-4" tabindex="-1"></a><span class="co">#  [ reached getOption(&quot;max.print&quot;) -- omitted 4 rows ]</span></span></code></pre></div>
+<p>Using the code above we get one value column per flower part. If we
+instead want a value column for each measurement dimension, we can
+do</p>
+<div class="sourceCode" id="cb13"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" tabindex="-1"></a><span class="fu">melt</span>(two.iris, <span class="at">measure.vars =</span> <span class="fu">measure</span>(part, value.name, <span class="at">sep=</span><span class="st">&quot;.&quot;</span>))</span>
+<span id="cb13-2"><a href="#cb13-2" tabindex="-1"></a><span class="co">#      Species   part Length Width</span></span>
+<span id="cb13-3"><a href="#cb13-3" tabindex="-1"></a><span class="co">#       &lt;fctr&gt; &lt;char&gt;  &lt;num&gt; &lt;num&gt;</span></span>
+<span id="cb13-4"><a href="#cb13-4" tabindex="-1"></a><span class="co">#  [ reached getOption(&quot;max.print&quot;) -- omitted 4 rows ]</span></span></code></pre></div>
+<p>Going back to the example of the data with families and children, we
+can see a more complex usage of <code>measure</code>, involving a
+function which is used to convert the <code>child</code> string values
+to integers:</p>
+<div class="sourceCode" id="cb14"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" tabindex="-1"></a>DT.m3 <span class="ot">=</span> <span class="fu">melt</span>(DT, <span class="at">measure =</span> <span class="fu">measure</span>(value.name, <span class="at">child=</span>as.integer, <span class="at">sep=</span><span class="st">&quot;_child&quot;</span>))</span>
+<span id="cb14-2"><a href="#cb14-2" tabindex="-1"></a><span class="fu">print</span>(DT.m3, <span class="at">class=</span><span class="cn">TRUE</span>)</span>
+<span id="cb14-3"><a href="#cb14-3" tabindex="-1"></a><span class="co">#     family_id age_mother child        dob gender</span></span>
+<span id="cb14-4"><a href="#cb14-4" tabindex="-1"></a><span class="co">#  [ reached getOption(&quot;max.print&quot;) -- omitted 16 rows ]</span></span></code></pre></div>
+<p>In the code above we used <code>sep=&quot;_child&quot;</code> which results in
+melting only the columns which contain that string (six column names
+split into two groups each). The <code>child=as.integer</code> argument
+means the second group will result in an output column named
+<code>child</code> with values defined by plugging the character strings
+from that group into the function <code>as.integer</code>.</p>
+<p>Finally we consider an example (borrowed from tidyr package) where we
+need to define the groups using a regular expression rather than a
+separator.</p>
+<div class="sourceCode" id="cb15"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" tabindex="-1"></a>(who <span class="ot">&lt;-</span> <span class="fu">data.table</span>(<span class="at">id=</span><span class="dv">1</span>, <span class="at">new_sp_m5564=</span><span class="dv">2</span>, <span class="at">newrel_f65=</span><span class="dv">3</span>))</span>
+<span id="cb15-2"><a href="#cb15-2" tabindex="-1"></a><span class="co">#       id new_sp_m5564 newrel_f65</span></span>
+<span id="cb15-3"><a href="#cb15-3" tabindex="-1"></a><span class="co">#    &lt;num&gt;        &lt;num&gt;      &lt;num&gt;</span></span>
+<span id="cb15-4"><a href="#cb15-4" tabindex="-1"></a><span class="co">#  [ reached getOption(&quot;max.print&quot;) -- omitted 1 row ]</span></span>
+<span id="cb15-5"><a href="#cb15-5" tabindex="-1"></a><span class="fu">melt</span>(who, <span class="at">measure.vars =</span> <span class="fu">measure</span>(</span>
+<span id="cb15-6"><a href="#cb15-6" tabindex="-1"></a>  diagnosis, gender, ages, <span class="at">pattern=</span><span class="st">&quot;new_?(.*)_(.)(.*)&quot;</span>))</span>
+<span id="cb15-7"><a href="#cb15-7" tabindex="-1"></a><span class="co">#       id diagnosis gender   ages value</span></span>
+<span id="cb15-8"><a href="#cb15-8" tabindex="-1"></a><span class="co">#  [ reached getOption(&quot;max.print&quot;) -- omitted 3 rows ]</span></span></code></pre></div>
+<p>When using the <code>pattern</code> argument, it must be a
+Perl-compatible regular expression containing the same number of capture
+groups (parenthesized sub-expressions) as the number other arguments
+(group names). The code below shows how to use a more complex regex with
+five groups, two numeric output columns, and an anonymous type
+conversion function,</p>
+<div class="sourceCode" id="cb16"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" tabindex="-1"></a><span class="fu">print</span>(<span class="fu">melt</span>(who, <span class="at">measure.vars =</span> <span class="fu">measure</span>(</span>
+<span id="cb16-2"><a href="#cb16-2" tabindex="-1"></a>  diagnosis, gender, ages,</span>
+<span id="cb16-3"><a href="#cb16-3" tabindex="-1"></a>  <span class="at">ymin=</span>as.numeric,</span>
+<span id="cb16-4"><a href="#cb16-4" tabindex="-1"></a>  <span class="at">ymax=</span><span class="cf">function</span>(y)<span class="fu">ifelse</span>(y<span class="sc">==</span><span class="st">&quot;&quot;</span>, <span class="cn">Inf</span>, <span class="fu">as.numeric</span>(y)),</span>
+<span id="cb16-5"><a href="#cb16-5" tabindex="-1"></a>  <span class="at">pattern=</span><span class="st">&quot;new_?(.*)_(.)(([0-9]{2})([0-9]{0,2}))&quot;</span></span>
+<span id="cb16-6"><a href="#cb16-6" tabindex="-1"></a>)), <span class="at">class=</span><span class="cn">TRUE</span>)</span>
+<span id="cb16-7"><a href="#cb16-7" tabindex="-1"></a><span class="co">#       id diagnosis gender   ages  ymin  ymax value</span></span>
+<span id="cb16-8"><a href="#cb16-8" tabindex="-1"></a><span class="co">#  [ reached getOption(&quot;max.print&quot;) -- omitted 3 rows ]</span></span></code></pre></div>
+</div>
+</div>
+<div id="b-enhanced-dcast" class="section level3">
+<h3>b) Enhanced <code>dcast</code></h3>
+<p>Okay great! We can now melt into multiple columns simultaneously. Now
+given the data set <code>DT.m2</code> as shown above, how can we get
+back to the same format as the original data we started with?</p>
+<p>If we use the current functionality of <code>dcast</code>, then we’d
+have to cast twice and bind the results together. But that’s once again
+verbose, not straightforward and is also inefficient.</p>
+<div id="casting-multiple-value.vars-simultaneously" class="section level4">
+<h4>- Casting multiple <code>value.var</code>s simultaneously</h4>
+<p>We can now provide <strong>multiple <code>value.var</code>
+columns</strong> to <code>dcast</code> for <code>data.table</code>s
+directly so that the operations are taken care of internally and
+efficiently.</p>
+<div class="sourceCode" id="cb17"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" tabindex="-1"></a><span class="do">## new &#39;cast&#39; functionality - multiple value.vars</span></span>
+<span id="cb17-2"><a href="#cb17-2" tabindex="-1"></a>DT.c2 <span class="ot">=</span> <span class="fu">dcast</span>(DT.m2, family_id <span class="sc">+</span> age_mother <span class="sc">~</span> variable, <span class="at">value.var =</span> <span class="fu">c</span>(<span class="st">&quot;dob&quot;</span>, <span class="st">&quot;gender&quot;</span>))</span>
+<span id="cb17-3"><a href="#cb17-3" tabindex="-1"></a>DT.c2</span>
+<span id="cb17-4"><a href="#cb17-4" tabindex="-1"></a><span class="co"># Key: &lt;family_id, age_mother&gt;</span></span>
+<span id="cb17-5"><a href="#cb17-5" tabindex="-1"></a><span class="co">#    family_id age_mother      dob_1      dob_2      dob_3 gender_1 gender_2 gender_3</span></span>
+<span id="cb17-6"><a href="#cb17-6" tabindex="-1"></a><span class="co">#  [ reached getOption(&quot;max.print&quot;) -- omitted 6 rows ]</span></span></code></pre></div>
+</div>
+<div id="section-4" class="section level4 bs-callout bs-callout-info">
+<h4 class="bs-callout bs-callout-info"></h4>
+<ul>
+<li><p>Attributes are preserved in result wherever possible.</p></li>
+<li><p>Everything is taken care of internally, and efficiently. In
+addition to being fast, it is also very memory efficient.</p></li>
+</ul>
+</div>
+</div>
+</div>
+<div id="section-5" class="section level1">
+<h1></h1>
+<div id="multiple-functions-to-fun.aggregate" class="section level4 bs-callout bs-callout-info">
+<h4 class="bs-callout bs-callout-info">Multiple functions to
+<code>fun.aggregate</code>:</h4>
+<p>You can also provide <em>multiple functions</em> to
+<code>fun.aggregate</code> to <code>dcast</code> for
+<em>data.tables</em>. Check the examples in <code>?dcast</code> which
+illustrates this functionality.</p>
+</div>
+</div>
+<div id="section-6" class="section level1">
+<h1></h1>
+<hr />
+</div>
+
+
+
+<!-- code folding -->
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>
